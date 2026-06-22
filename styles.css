@@ -94,8 +94,8 @@ body.touch.in-game #dashBtn{display:block;}
 
 /* ---------------- menu ---------------- */
 .logo{text-align:center;margin-top:6vh;max-width:100%;padding:0 8px;}
-.logo h1{font-size:clamp(30px,10.5vw,84px);margin:0;font-weight:900;letter-spacing:1px;
-  color:var(--gold);text-shadow:0 0 24px #ffd24a66,0 4px 0 #6c4fd0;line-height:.9;white-space:nowrap;}
+.logo h1{font-size:clamp(34px,11vw,82px);margin:0;font-weight:900;letter-spacing:1px;
+  color:var(--gold);text-shadow:0 0 24px #ffd24a66,0 4px 0 #6c4fd0;line-height:.9;}
 .logo h1 span{color:var(--cyan);text-shadow:0 0 24px #5BE9FF77,0 4px 0 #2a2148;}
 .tag{color:var(--muted);margin:10px 0 0;font-size:clamp(13px,3.6vw,17px);}
 .menu-stats{display:flex;gap:18px;margin:22px 0;font-weight:800;color:var(--txt);font-size:15px;flex-wrap:wrap;justify-content:center;}
@@ -171,6 +171,10 @@ body.touch.in-game #dashBtn{display:block;}
   .perk-icon{font-size:32px;}
   .menu-btns{width:88vw;}
   #timer{font-size:22px;}
+}
+/* stack the two-word logo on phones so it never overflows */
+@media (max-width:480px){
+  .logo h1{display:flex;flex-direction:column;line-height:.92;font-size:clamp(40px,15vw,72px);}
 }
 @media (min-width:900px) and (pointer:fine){
   /* desktop: nudge HUD timer bigger */

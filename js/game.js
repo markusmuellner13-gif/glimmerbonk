@@ -1046,7 +1046,19 @@ function boot() {
   // dev/demo autostart for screenshots: index.html?demo[=charId]
   try {
     const q = new URLSearchParams(location.search);
-    if (q.has('demo')) setTimeout(() => startRun(q.get('demo') || 'bronte'), 60);
+    if (q.has('demo') || q.has('warp')) {
+      startRun(q.get('demo') || 'bronte');
+      // warp: fast-forward N simulated frames so a screenshot shows live action
+      const n = q.has('warp') ? Math.max(1, +q.get('warp') || 600) : 0;
+      Input.joy.active = true;
+      for (let i = 0; i < n; i++) {
+        if (Game.state === 'levelup' && Game.pendingPerks) { choosePerk(Game.pendingPerks[0][0]); continue; }
+        Input.joy.x = Math.cos(i * 0.05); Input.joy.y = Math.sin(i * 0.05);
+        update(1 / 60);
+      }
+      Input.joy.active = false; Input.joy.x = 0; Input.joy.y = 0;
+      render();
+    }
   } catch (e) {}
 }
 boot();

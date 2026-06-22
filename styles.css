@@ -93,9 +93,9 @@ body.touch.in-game #dashBtn{display:block;}
 .sub{color:var(--muted);margin:2px 0 16px;font-size:14px;text-align:center;}
 
 /* ---------------- menu ---------------- */
-.logo{text-align:center;margin-top:6vh;}
-.logo h1{font-size:clamp(44px,12vw,84px);margin:0;font-weight:900;letter-spacing:2px;
-  color:var(--gold);text-shadow:0 0 24px #ffd24a66,0 4px 0 #6c4fd0;line-height:.9;}
+.logo{text-align:center;margin-top:6vh;max-width:100%;padding:0 8px;}
+.logo h1{font-size:clamp(30px,10.5vw,84px);margin:0;font-weight:900;letter-spacing:1px;
+  color:var(--gold);text-shadow:0 0 24px #ffd24a66,0 4px 0 #6c4fd0;line-height:.9;white-space:nowrap;}
 .logo h1 span{color:var(--cyan);text-shadow:0 0 24px #5BE9FF77,0 4px 0 #2a2148;}
 .tag{color:var(--muted);margin:10px 0 0;font-size:clamp(13px,3.6vw,17px);}
 .menu-stats{display:flex;gap:18px;margin:22px 0;font-weight:800;color:var(--txt);font-size:15px;flex-wrap:wrap;justify-content:center;}

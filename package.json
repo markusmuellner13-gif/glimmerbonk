@@ -1,0 +1,12 @@
+{
+  "name": "glimmerbonk",
+  "version": "1.0.0",
+  "private": true,
+  "description": "GLIMMERBONK — a neon 2D auto-shooter roguelite PWA.",
+  "scripts": {
+    "icons": "node scripts/gen-icons.mjs",
+    "dev": "node scripts/serve.mjs",
+    "build": "node scripts/gen-icons.mjs"
+  },
+  "license": "MIT"
+}

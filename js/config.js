@@ -22,8 +22,8 @@ const WEAPONS = {
     desc: "Heavy hammers orbit you, bonking all they touch.",
   },
   arrow: {
-    name: "Quickbow", behavior: "projectile", color: "#7CFF6B",
-    cooldown: 0.42, dmg: 11, speed: 560, count: 1, pierce: 1, size: 7, range: 620,
+    name: "Quickbow", behavior: "projectile", color: "#7CFF6B", proj: "arrow",
+    cooldown: 0.42, dmg: 11, speed: 560, count: 1, pierce: 1, size: 8, range: 620,
     desc: "Fires fast arrows at the nearest foe.",
   },
   chain: {
@@ -32,18 +32,18 @@ const WEAPONS = {
     desc: "Lightning leaps between nearby enemies.",
   },
   firenova: {
-    name: "Cinderburst", behavior: "nova", color: "#ff5a3c",
-    cooldown: 1.5, dmg: 20, count: 10, speed: 360, size: 9, range: 420, burn: 6,
-    desc: "Explodes a ring of burning embers around you.",
+    name: "Cinderburst", behavior: "nova", color: "#ff5a3c", proj: "fireball",
+    cooldown: 1.5, dmg: 20, count: 10, speed: 360, size: 10, range: 420, burn: 6,
+    desc: "Explodes a ring of burning fireballs around you.",
   },
   boneshard: {
-    name: "Bone Spray", behavior: "spread", color: "#e8e0d0",
-    cooldown: 0.7, dmg: 13, speed: 480, count: 3, spread: 0.32, pierce: 1, size: 6, range: 540,
+    name: "Bone Spray", behavior: "spread", color: "#e8e0d0", proj: "bone",
+    cooldown: 0.7, dmg: 13, speed: 480, count: 3, spread: 0.32, pierce: 1, size: 7, range: 540,
     desc: "Hurls a fan of splintering bone shards.",
   },
   dagger: {
-    name: "Shadow Fangs", behavior: "spread", color: "#c08bff",
-    cooldown: 0.5, dmg: 9, speed: 640, count: 2, spread: 0.12, pierce: 1, size: 5, range: 560,
+    name: "Shadow Fangs", behavior: "spread", color: "#c08bff", proj: "dagger",
+    cooldown: 0.5, dmg: 9, speed: 640, count: 2, spread: 0.12, pierce: 1, size: 7, range: 560,
     crit: 0.25,
     desc: "Twin daggers with a wicked critical edge.",
   },
@@ -54,8 +54,8 @@ const WEAPONS = {
     desc: "A searing field damages everything near you.",
   },
   starfall: {
-    name: "Starfall", behavior: "nova", color: "#9db4ff",
-    cooldown: 2.2, dmg: 26, count: 6, speed: 300, size: 11, range: 500, burn: 0,
+    name: "Starfall", behavior: "nova", color: "#9db4ff", proj: "star",
+    cooldown: 2.2, dmg: 26, count: 6, speed: 300, size: 12, range: 500, burn: 0,
     desc: "Calls down a slow ring of falling stars.",
   },
 };
@@ -146,14 +146,21 @@ const BOSSES = [
   { id:"glimmerdragon", name:"Glimmerwyrm, the Endless", hp:9000, speed:70, dmg:52, radius:64, color:"#ffd24a", xp:600, glimmer:600, shape:"boss_dragon", ability:"all" },
 ];
 
-/* ---------- BIOMES (visual + enemy palette by phase) ---------- */
+/* ---------- BIOMES (visual + enemy palette by phase) ----------
+   tile = checker floor tint, decor = scenery props, density 0..1 */
 const BIOMES = [
-  { name:"Greenwild Meadows", bg:"#13251a", grid:"#1c3a26", tier:[1,1,2],        accent:"#2e6b3e" },
-  { name:"Hollow Catacombs",  bg:"#1a1622", grid:"#2a2236", tier:[1,2,2],        accent:"#5a4a8a" },
-  { name:"Ashen Wastes",      bg:"#241612", grid:"#3a221c", tier:[2,2,3],        accent:"#a3553a" },
-  { name:"Frostbite Tundra",  bg:"#10202a", grid:"#1b3340", tier:[2,3,3],        accent:"#3a7fa3" },
-  { name:"Voidlands",         bg:"#160f1f", grid:"#241634", tier:[3,3,4],        accent:"#7a3fb0" },
-  { name:"The Glimmercore",   bg:"#231b08", grid:"#3a2c10", tier:[3,4,4],        accent:"#caa12e" },
+  { name:"Greenwild Meadows", bg:"#13251a", tile:"#172d20", grid:"#21392a", tier:[1,1,2], accent:"#2e6b3e",
+    grid2:"#244a30", decor:["tree","bush","flower","rock","tree"], decorDensity:0.34, path:"#1d3526" },
+  { name:"Hollow Catacombs",  bg:"#16131f", tile:"#1c1828", grid:"#2a2236", tier:[1,2,2], accent:"#6a5aaa",
+    grid2:"#332a44", decor:["gravestone","pillar","bone","rock","cross"], decorDensity:0.32, path:"#221c30" },
+  { name:"Ashen Wastes",      bg:"#1e1410", tile:"#261813", grid:"#3a221c", tier:[2,2,3], accent:"#c2653a",
+    grid2:"#48291f", decor:["deadtree","lavarock","rock","bone","deadtree"], decorDensity:0.30, path:"#2c1c14" },
+  { name:"Frostbite Tundra",  bg:"#0f1d27", tile:"#13242f", grid:"#1b3340", tier:[2,3,3], accent:"#4d9ac2",
+    grid2:"#264457", decor:["pine","icerock","snowmound","rock","pine"], decorDensity:0.32, path:"#193039" },
+  { name:"Voidlands",         bg:"#140d1d", tile:"#1a1226", grid:"#2a1c3c", tier:[3,3,4], accent:"#9a52d0",
+    grid2:"#3a2456", decor:["crystal","pillar","rock","crystal","void"], decorDensity:0.30, path:"#221634" },
+  { name:"The Glimmercore",   bg:"#211907", tile:"#2a2009", grid:"#3a2c10", tier:[3,4,4], accent:"#e0b528",
+    grid2:"#4d3a14", decor:["orevein","crystal","goldrock","crystal","orevein"], decorDensity:0.36, path:"#2f2410" },
 ];
 
 /* ---------- PERKS (level-up choices) ---------- */

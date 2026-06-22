@@ -122,16 +122,15 @@ function renderCharSelect() {
 function drawPortrait(cv, c) {
   const x = cv.getContext('2d');
   x.clearRect(0, 0, 96, 96);
-  x.save(); x.translate(48, 50);
-  x.fillStyle = c.color; x.shadowColor = c.color; x.shadowBlur = 14;
-  x.beginPath(); x.arc(0, 0, 26, 0, Math.PI * 2); x.fill();
-  x.shadowBlur = 0;
-  x.strokeStyle = c.accent; x.lineWidth = 4;
-  x.beginPath(); x.arc(0, 0, 17, 0, Math.PI * 2); x.stroke();
-  x.fillStyle = '#fff';
-  x.beginPath(); x.arc(-8, -4, 6, 0, Math.PI * 2); x.arc(8, -4, 6, 0, Math.PI * 2); x.fill();
-  x.fillStyle = '#111';
-  x.beginPath(); x.arc(-8, -3, 3, 0, Math.PI * 2); x.arc(8, -3, 3, 0, Math.PI * 2); x.fill();
+  // soft glow backdrop
+  x.fillStyle = c.color; x.globalAlpha = 0.10;
+  x.beginPath(); x.arc(48, 50, 40, 0, Math.PI * 2); x.fill(); x.globalAlpha = 1;
+  // ground shadow
+  x.globalAlpha = 0.25; x.fillStyle = '#000';
+  x.beginPath(); x.ellipse(48, 78, 22, 7, 0, 0, Math.PI * 2); x.fill(); x.globalAlpha = 1;
+  x.save(); x.translate(48, 54); x.scale(1.85, 1.85);
+  // aim up-right so held weapons read nicely
+  drawHeroSprite(x, c.id, c.color, c.accent, -0.5, 0, false, false);
   x.restore();
 }
 

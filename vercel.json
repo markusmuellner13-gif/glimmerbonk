@@ -1,5 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "node scripts/gen-icons.mjs",
+  "outputDirectory": ".",
   "cleanUrls": true,
   "headers": [
     {

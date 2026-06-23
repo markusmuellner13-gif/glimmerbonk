@@ -70,7 +70,30 @@ sandbox.globalThis = sandbox;
 sandbox.window.innerWidth = 1280;
 sandbox.window.innerHeight = 720;
 sandbox.window.devicePixelRatio = 1;
-sandbox.AudioContext = class { constructor() {} createOscillator() { return { type: '', frequency: {}, connect: noop, start: noop, stop: noop }; } createGain() { return { gain: { setValueAtTime: noop, exponentialRampToValueAtTime: noop }, connect: noop }; } get currentTime() { return 0; } get destination() { return {}; } };
+// permissive Web Audio stub: any node method/prop is a no-op
+function audioNode(extra = {}) {
+  const base = Object.assign({
+    frequency: audioParam(), gain: audioParam(), Q: audioParam(),
+    type: '', buffer: null,
+    connect: noop, disconnect: noop, start: noop, stop: noop,
+    getChannelData: () => new Float32Array(1),
+  }, extra);
+  return new Proxy(base, { get: (t, k) => (k in t ? t[k] : noop), set: (t, k, v) => { t[k] = v; return true; } });
+}
+function audioParam() {
+  return new Proxy({ value: 0 }, { get: (t, k) => (k in t ? t[k] : noop), set: (t, k, v) => { t[k] = v; return true; } });
+}
+sandbox.AudioContext = class {
+  constructor() { this.state = 'running'; this.sampleRate = 44100; }
+  get currentTime() { return Date.now() / 1000; }
+  get destination() { return audioNode(); }
+  createOscillator() { return audioNode(); }
+  createGain() { return audioNode(); }
+  createBufferSource() { return audioNode(); }
+  createBiquadFilter() { return audioNode(); }
+  createBuffer() { return audioNode(); }
+  resume() { return Promise.resolve(); }
+};
 
 vm.createContext(sandbox);
 

@@ -31,6 +31,7 @@ const Save = {
       bestLevel: 0,
       lastChar: 'bronte',
       muted: false,
+      musicOff: false,
     };
   },
   load() {
@@ -44,28 +45,166 @@ const Save = {
   shopLevel(id) { return this.data.shop[id] || 0; },
 };
 
-/* ----------------------------- audio (tiny synth) ----------------------------- */
+/* ----------------------------- audio (procedural SFX synth) ----------------------------- */
 const Audio2 = {
-  ctx: null,
-  init() { if (!this.ctx) { try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } },
-  blip(freq = 440, dur = 0.06, type = 'square', vol = 0.05) {
-    if (Save.data.muted || !this.ctx) return;
+  ctx: null, master: null, noiseBuf: null, _lastImpact: 0,
+  init() {
+    if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
     try {
-      const t = this.ctx.currentTime;
-      const o = this.ctx.createOscillator(), g = this.ctx.createGain();
-      o.type = type; o.frequency.value = freq;
-      g.gain.setValueAtTime(vol, t);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-      o.connect(g); g.connect(this.ctx.destination);
-      o.start(t); o.stop(t + dur);
+      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      this.master = this.ctx.createGain();
+      this.master.gain.value = 0.85;
+      this.master.connect(this.ctx.destination);
+      // short white-noise buffer for whooshes/hats/explosions
+      const len = Math.floor(this.ctx.sampleRate * 0.4);
+      this.noiseBuf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+      const d = this.noiseBuf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     } catch (e) {}
   },
-  shoot() { this.blip(660, 0.04, 'square', 0.025); },
-  hit() { this.blip(180, 0.05, 'sawtooth', 0.03); },
-  level() { this.blip(880, 0.12, 'triangle', 0.06); setTimeout(() => this.blip(1180, 0.12, 'triangle', 0.06), 90); },
-  hurt() { this.blip(120, 0.18, 'sawtooth', 0.06); },
-  pickup() { this.blip(1040, 0.03, 'sine', 0.02); },
-  boss() { this.blip(80, 0.5, 'sawtooth', 0.08); },
+  // basic oscillator voice (optional pitch slide)
+  tone(freq, dur, type = 'square', vol = 0.05, slideTo, when = 0) {
+    if (Save.data.muted || !this.ctx) return;
+    try {
+      const t = this.ctx.currentTime + when;
+      const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+      o.type = type; o.frequency.setValueAtTime(freq, t);
+      if (slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(1, slideTo), t + dur);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(vol, t + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(this.master);
+      o.start(t); o.stop(t + dur + 0.02);
+    } catch (e) {}
+  },
+  // filtered noise burst (whoosh / hat / explosion)
+  noise(dur, vol = 0.05, filterType = 'highpass', freq = 1800, when = 0) {
+    if (Save.data.muted || !this.ctx || !this.noiseBuf) return;
+    try {
+      const t = this.ctx.currentTime + when;
+      const s = this.ctx.createBufferSource(); s.buffer = this.noiseBuf;
+      const f = this.ctx.createBiquadFilter(); f.type = filterType; f.frequency.value = freq;
+      const g = this.ctx.createGain();
+      g.gain.setValueAtTime(vol, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      s.connect(f); f.connect(g); g.connect(this.master);
+      s.start(t); s.stop(t + dur + 0.02);
+    } catch (e) {}
+  },
+  blip(freq = 440, dur = 0.06, type = 'square', vol = 0.05) { this.tone(freq, dur, type, vol); },
+
+  // ---- weapon firing sounds (chosen by weapon def) ----
+  fire(def) {
+    const k = def.proj || def.behavior;
+    switch (k) {
+      case 'arrow':    this.tone(880, 0.08, 'sawtooth', 0.03, 320); this.noise(0.05, 0.02, 'highpass', 3000); break;
+      case 'fireball': this.noise(0.22, 0.05, 'lowpass', 700); this.tone(180, 0.22, 'sawtooth', 0.035, 90); break;
+      case 'bone':     this.tone(420, 0.05, 'square', 0.03, 260); this.tone(300, 0.04, 'square', 0.02, 200, 0.03); break;
+      case 'dagger':   this.noise(0.07, 0.035, 'highpass', 4200); break;
+      case 'star':     this.tone(1320, 0.12, 'triangle', 0.03, 1980); this.tone(1760, 0.1, 'sine', 0.02, undefined, 0.05); break;
+      case 'chain':    this.tone(1400, 0.05, 'sawtooth', 0.03, 600); this.noise(0.08, 0.03, 'highpass', 5000); break;
+      case 'nova':     this.noise(0.2, 0.05, 'lowpass', 600); this.tone(120, 0.25, 'sawtooth', 0.04, 60); break;
+      default:         this.tone(660, 0.04, 'square', 0.025, 440);
+    }
+  },
+  // soft, rate-limited impact tick when a projectile lands
+  impact(kind) {
+    if (!this.ctx) return;
+    const now2 = this.ctx.currentTime;
+    if (now2 - this._lastImpact < 0.035) return; this._lastImpact = now2;
+    if (kind === 'fireball' || kind === 'nova') this.noise(0.12, 0.03, 'lowpass', 900);
+    else this.tone(220, 0.04, 'square', 0.02, 130);
+  },
+  hit() { this.tone(180, 0.05, 'sawtooth', 0.03, 90); this.noise(0.06, 0.02, 'lowpass', 1200); },   // enemy death
+  level() { [0, 90, 180].forEach((ms, i) => setTimeout(() => this.tone(660 + i * 220, 0.16, 'triangle', 0.06), ms)); },
+  hurt() { this.tone(150, 0.2, 'sawtooth', 0.06, 60); this.noise(0.12, 0.04, 'lowpass', 800); },
+  pickup() { this.tone(1040, 0.03, 'sine', 0.02); },
+  coin() { this.tone(880, 0.04, 'triangle', 0.025, undefined); this.tone(1320, 0.05, 'triangle', 0.02, undefined, 0.03); },
+  boss() { this.tone(70, 0.6, 'sawtooth', 0.09, 50); this.noise(0.5, 0.05, 'lowpass', 400); },
+  bossHit() { this.tone(90, 0.18, 'square', 0.05, 50); },
+  ui() { this.tone(520, 0.05, 'triangle', 0.03, 720); },
+};
+
+/* ----------------------------- procedural background music -----------------------------
+   100% generated in-code (no samples, no copyright). An A-minor groove with
+   bass, arpeggio, pad, melody + kick. Transposes per biome, intensifies for bosses. */
+const Music = {
+  master: null, playing: false, timer: null, step: 0, nextTime: 0, bpm: 102,
+  biome: 0, boss: false,
+  // A natural-minor palette (Hz)
+  bass: [110.00, 87.31, 130.81, 98.00],                     // Am  F  C  G  (roots)
+  chord: [[220.00, 261.63, 329.63], [174.61, 220.00, 261.63], [261.63, 329.63, 392.00], [196.00, 246.94, 293.66]],
+  mel: [440.00, 523.25, 587.33, 659.25, 783.99],            // A C D E G pentatonic
+  transpose: [0, 2, -3, -5, 4, 7],                          // semitone shift per biome
+
+  start() {
+    Audio2.init();
+    if (!Audio2.ctx || this.playing || Save.data.musicOff) return;
+    this.master = Audio2.ctx.createGain();
+    this.master.gain.value = Save.data.muted ? 0 : 0.5;
+    this.master.connect(Audio2.ctx.destination);
+    this.playing = true; this.step = 0;
+    this.nextTime = Audio2.ctx.currentTime + 0.1;
+    this.schedule();
+  },
+  stop() {
+    this.playing = false;
+    if (this.timer) { clearTimeout(this.timer); this.timer = null; }
+    if (this.master) { try { this.master.disconnect(); } catch (e) {} this.master = null; }
+  },
+  setBiome(i) { this.biome = i; },
+  setBoss(b) { this.boss = b; this.bpm = b ? 128 : 102; },
+  setMuted(m) { if (this.master) this.master.gain.value = m ? 0 : 0.5; },
+
+  voice(freq, dur, type, vol, time, slideTo) {
+    try {
+      const c = Audio2.ctx;
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = type; o.frequency.setValueAtTime(freq, time);
+      if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, time + dur);
+      g.gain.setValueAtTime(0.0001, time);
+      g.gain.exponentialRampToValueAtTime(vol, time + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+      o.connect(g); g.connect(this.master);
+      o.start(time); o.stop(time + dur + 0.03);
+    } catch (e) {}
+  },
+  kick(time) {
+    try {
+      const c = Audio2.ctx, o = c.createOscillator(), g = c.createGain();
+      o.type = 'sine'; o.frequency.setValueAtTime(150, time); o.frequency.exponentialRampToValueAtTime(48, time + 0.12);
+      g.gain.setValueAtTime(0.12, time); g.gain.exponentialRampToValueAtTime(0.0001, time + 0.14);
+      o.connect(g); g.connect(this.master); o.start(time); o.stop(time + 0.16);
+    } catch (e) {}
+  },
+
+  playStep(s, time) {
+    const tf = Math.pow(2, (this.transpose[this.biome] || 0) / 12);
+    const ci = Math.floor(s / 8) % 4;
+    const beat = s % 8;
+    // bass on the 1 and the 5 (downbeats)
+    if (beat === 0 || beat === 4) { this.voice(this.bass[ci] * tf, 0.42, 'triangle', this.boss ? 0.16 : 0.12, time); this.kick(time); }
+    // arpeggio on 8th notes
+    if (s % 2 === 0) this.voice(this.chord[ci][(s / 2) % 3] * tf, 0.18, 'square', 0.035, time);
+    // soft hat on offbeats
+    if (s % 2 === 1) { try { const c = Audio2.ctx; const src = c.createBufferSource(); src.buffer = Audio2.noiseBuf; const f = c.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 7000; const g = c.createGain(); g.gain.setValueAtTime(0.018, time); g.gain.exponentialRampToValueAtTime(0.0001, time + 0.05); src.connect(f); f.connect(g); g.connect(this.master); src.start(time); src.stop(time + 0.06); } catch (e) {} }
+    // pad swell on chord change
+    if (beat === 0) { for (const n of this.chord[ci]) this.voice(n * tf * 0.5, 8 * this.stepDur(), 'sine', 0.02, time); }
+    // melody flourish
+    if (!this.boss && (beat === 2 || beat === 6) && Math.random() < 0.55)
+      this.voice(this.mel[(Math.random() * this.mel.length) | 0] * tf, 0.22, 'triangle', 0.04, time);
+    if (this.boss && beat % 2 === 0) this.voice(this.bass[ci] * tf * 0.5, 0.14, 'sawtooth', 0.05, time); // boss pulse
+  },
+  stepDur() { return 60 / this.bpm / 4; },           // 16th notes
+  schedule() {
+    if (!this.playing || !Audio2.ctx) return;
+    while (this.nextTime < Audio2.ctx.currentTime + 0.2) {
+      this.playStep(this.step, this.nextTime);
+      this.nextTime += this.stepDur();
+      this.step = (this.step + 1) % 32;
+    }
+    this.timer = setTimeout(() => this.schedule(), 30);
+  },
 };
 
 /* ----------------------------- core state ----------------------------- */
@@ -199,6 +338,7 @@ function startRun(charId) {
   Game.runId++;
   Game.state = 'playing'; Game.paused = false;
   Audio2.init();
+  Music.setBoss(false); Music.setBiome(0); Music.start();
   hideAllScreens();
   document.body.classList.add('in-game');
   updateHUD();
@@ -258,6 +398,7 @@ function spawnBoss() {
   Game.bossActive = b;
   Game.cam.shake = 18;
   Audio2.boss();
+  Music.setBoss(true);
   toast('⚠ ' + def.name + ' appears!');
 }
 
@@ -272,6 +413,7 @@ function updateSpawning(dt) {
   // biome shift
   if (Game.t >= Game.nextBiome && Game.biomeIndex < BIOMES.length - 1) {
     Game.biomeIndex++; Game.nextBiome += CONFIG.biomeEvery;
+    Music.setBiome(Game.biomeIndex);
     toast('Entering ' + currentBiome().name);
   }
   // boss
@@ -329,7 +471,7 @@ function fireWeapon(p, w, dt) {
   const target = nearestEnemy(p.x, p.y, (def.range || 600));
   if (!target && def.behavior !== 'nova') return;
   w.cd = def.cooldown / s.fireRateMult;
-  Audio2.shoot();
+  Audio2.fire(def);
 
   if (def.behavior === 'nova') {
     const n = def.count + s.projectileCount * 2;
@@ -434,6 +576,7 @@ function killEnemy(e, p) {
   if (e.boss) {
     Game.bossActive = null;
     Game.cam.shake = 24;
+    Music.setBoss(false);
     toast(e.name + ' slain! +' + e.glimmer + ' Glimmer');
     unlockAch('boss1');
   }
@@ -637,6 +780,9 @@ function update(dt) {
     const b = Game.bullets[i];
     b.px = b.x; b.py = b.y;
     b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt; b.spin += b.spinV * dt;
+    // glowing trail motes for fancy projectiles
+    if ((b.kind === 'fireball' || b.kind === 'star') && (Game.frame & 1) === 0)
+      Game.particles.push({ x: b.x, y: b.y, vx: rand(-12, 12), vy: rand(-12, 12), life: rand(0.18, 0.34), color: b.color, r: b.radius * 0.4, kind: 'dot' });
     let dead = b.life <= 0;
     if (!dead) {
       for (const e of Game.enemies) {
@@ -645,7 +791,8 @@ function update(dt) {
           damageEnemy(e, b.dmg, Game.player, b.color, b.crit && Math.random() < 0.5);
           if (b.burn) { e.burn = b.burn; e.burnT = 2; }
           b.hits.add(e);
-          spawnBurst(b.x, b.y, b.color, 3);
+          bulletImpact(b);
+          Audio2.impact(b.kind);
           if (b.pierce-- <= 0) { dead = true; break; }
         }
       }
@@ -667,18 +814,26 @@ function update(dt) {
   const magR = 122 * p.stats.magnet;
   collectables(Game.gems, dt, magR, g => { gainXP(g.value); Audio2.pickup(); });
   collectables(Game.coins, dt, magR, c => {
-    if (c.heal) { p.hp = Math.min(p.maxHp, p.hp + c.heal); }
+    if (c.heal) { p.hp = Math.min(p.maxHp, p.hp + c.heal); Audio2.tone(740, 0.12, 'sine', 0.05, 980); }
     else {
       const amt = Math.max(1, Math.round(c.value * p.stats.glimmerMult));
-      Game.glimmerRun += amt;
+      Game.glimmerRun += amt; Audio2.coin();
     }
-    Audio2.pickup();
   });
+
+  // ambient atmosphere
+  spawnAmbient(dt);
 
   // particles & floaters
   for (let i = Game.particles.length - 1; i >= 0; i--) {
     const pa = Game.particles[i];
-    pa.x += pa.vx * dt; pa.y += pa.vy * dt; pa.vx *= 0.9; pa.vy *= 0.9; pa.life -= dt;
+    if (pa.kind === 'amb') {
+      pa.ph += dt * 2.2;
+      pa.x += (pa.vx + Math.sin(pa.ph) * pa.sway * 0.35) * dt;
+      pa.y += pa.vy * dt; pa.life -= dt;
+    } else {
+      pa.x += pa.vx * dt; pa.y += pa.vy * dt; pa.vx *= 0.9; pa.vy *= 0.9; pa.life -= dt;
+    }
     if (pa.life <= 0) Game.particles.splice(i, 1);
   }
   for (let i = Game.floaters.length - 1; i >= 0; i--) {
@@ -756,6 +911,44 @@ function spawnBurst(x, y, color, n) {
 function spawnRing(x, y, r, color, life) { Game.particles.push({ x, y, vx: 0, vy: 0, life, color, r, kind: 'ring', max: life }); }
 function spawnLightning(x1, y1, x2, y2, color) { Game.particles.push({ x: x1, y: y1, x2, y2, life: 0.12, color, kind: 'bolt' }); }
 function floater(x, y, text, color, big) { Game.floaters.push({ x, y, text, color, life: 0.6, big }); }
+
+/* projectile-specific impact flair */
+function bulletImpact(b) {
+  if (b.kind === 'fireball' || b.kind === 'nova') {
+    spawnRing(b.x, b.y, b.radius * 2.2, '#ffd24a', 0.18);
+    for (let i = 0; i < 6; i++) { const a = rand(0, TAU), s = rand(60, 200); Game.particles.push({ x: b.x, y: b.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rand(0.2, 0.45), color: i % 2 ? '#ff6a2c' : '#ffd24a', r: rand(2, 4), kind: 'dot' }); }
+  } else if (b.kind === 'star') {
+    for (let i = 0; i < 5; i++) { const a = rand(0, TAU); Game.particles.push({ x: b.x, y: b.y, vx: Math.cos(a) * 140, vy: Math.sin(a) * 140, life: 0.3, color: '#fff', r: 2, kind: 'dot' }); }
+    spawnRing(b.x, b.y, b.radius * 1.6, b.color, 0.16);
+  } else {
+    spawnBurst(b.x, b.y, b.color, 3);
+  }
+}
+
+/* ---- atmospheric ambient particles per biome (drifting leaves/snow/embers/motes) ---- */
+const AMBIENT = [
+  { kinds: ['#7CFF6B', '#cfe87a'], vy: 22, sway: 18, rate: 0.5, r: [2, 3.5] },   // meadow: pollen/leaves
+  { kinds: ['#9a7bd6', '#6a5aaa'], vy: -8, sway: 10, rate: 0.4, r: [1.5, 2.6] }, // catacombs: wisps
+  { kinds: ['#ff6a2c', '#ffd24a'], vy: -34, sway: 14, rate: 0.7, r: [1.5, 3] },  // ashen: rising embers
+  { kinds: ['#ffffff', '#cdeaf7'], vy: 40, sway: 22, rate: 0.9, r: [1.8, 3.2] }, // tundra: snow
+  { kinds: ['#a06bff', '#6a3fb0'], vy: -16, sway: 16, rate: 0.6, r: [1.5, 3] },  // voidlands: motes
+  { kinds: ['#ffd24a', '#fff2b0'], vy: -10, sway: 12, rate: 0.7, r: [1.5, 3] },  // glimmercore: sparkles
+];
+function spawnAmbient(dt) {
+  const cfg = AMBIENT[Math.min(Game.biomeIndex, AMBIENT.length - 1)];
+  Game._ambAcc = (Game._ambAcc || 0) + dt;
+  const per = cfg.rate * 0.06;                 // spawn pacing
+  while (Game._ambAcc > per) {
+    Game._ambAcc -= per;
+    const halfW = W / 2 / zoom + 60, halfH = H / 2 / zoom + 60;
+    const x = Game.cam.x + rand(-halfW, halfW);
+    const y = Game.cam.y + (cfg.vy >= 0 ? -halfH : halfH) + rand(-30, 30);
+    Game.particles.push({
+      x, y, vx: rand(-cfg.sway, cfg.sway) * 0.4, vy: cfg.vy, life: rand(3.5, 6),
+      color: pick(cfg.kinds), r: rand(cfg.r[0], cfg.r[1]), kind: 'amb', sway: cfg.sway, ph: rand(0, TAU),
+    });
+  }
+}
 
 /* ----------------------------- render ----------------------------- */
 function render() {
@@ -1024,6 +1217,11 @@ function drawParticle(pa) {
   if (pa.kind === 'dot') {
     ctx.globalAlpha = clamp(pa.life * 2.2, 0, 1);
     ctx.fillStyle = pa.color; circle(pa.x, pa.y, pa.r);
+  } else if (pa.kind === 'amb') {
+    // fade in over first 0.5s, out over last 1s
+    const a = Math.min(1, (6 - pa.life) * 2, pa.life) * 0.55;
+    ctx.globalAlpha = clamp(a, 0, 1); ctx.fillStyle = pa.color;
+    circle(pa.x, pa.y, pa.r);
   } else if (pa.kind === 'flash') {
     const k = clamp(pa.life / pa.max, 0, 1);
     ctx.globalAlpha = k; ctx.fillStyle = '#fff'; ctx.shadowColor = pa.color; ctx.shadowBlur = 16;
@@ -1136,11 +1334,21 @@ function drawHeroSprite(g, id, color, accent, aim, t, flash, moving) {
   const step = moving ? Math.sin(t * 9) * 2.4 : 0;
   const body = flash ? '#ffffff' : color;
   const dark = flash ? '#ffffff' : accent;
+  const idle = !moving;
+  const breathe = idle ? Math.sin(t * 2.6) * 0.045 : 0;        // gentle chest rise/fall
+  const sway = Math.sin(t * 2.2) * (idle ? 0.07 : 0.025);       // weapon bob
+  const blink = (t % 3.4) > 3.28;                               // quick blink ~every 3.4s
   g.save();
   g.translate(0, -bob);
+  g.scale(1 - breathe * 0.35, 1 + breathe * 0.6);              // breathing squash/stretch
 
-  function held(fn) { g.save(); g.rotate(aim); g.translate(R * 0.7, R * 0.25); fn(); g.restore(); }
+  function held(fn) { g.save(); g.rotate(aim + sway); g.translate(R * 0.7, R * 0.25); fn(); g.restore(); }
   function face(hx, hy, hr, eyeCol) {
+    if (blink) {
+      g.strokeStyle = eyeCol || '#1a1320'; g.lineWidth = hr * 0.12; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(hx - hr * 0.48, hy); g.lineTo(hx - hr * 0.2, hy); g.moveTo(hx + hr * 0.2, hy); g.lineTo(hx + hr * 0.48, hy); g.stroke(); g.lineCap = 'butt';
+      return;
+    }
     g.fillStyle = '#fff';
     g.beginPath(); g.arc(hx - hr * 0.34, hy, hr * 0.26, 0, TAU); g.arc(hx + hr * 0.34, hy, hr * 0.26, 0, TAU); g.fill();
     g.fillStyle = eyeCol || '#1a1320';
@@ -1296,6 +1504,7 @@ function frame() {
 /* ----------------------------- game over ----------------------------- */
 function gameOver() {
   Game.state = 'gameover';
+  Music.stop();
   // bank glimmer
   Save.data.glimmer += Game.glimmerRun;
   Save.data.totalGlimmer += Game.glimmerRun;
@@ -1343,6 +1552,7 @@ function boot() {
       for (let i = 0; i < n; i++) {
         if (Game.state === 'levelup' && Game.pendingPerks) { choosePerk(Game.pendingPerks[0][0]); continue; }
         Input.joy.x = Math.cos(i * 0.05); Input.joy.y = Math.sin(i * 0.05);
+        if (q.has('god')) Game.player.hp = Game.player.maxHp;   // keep alive for deep-biome screenshots
         update(1 / 60);
       }
       Input.joy.active = false; Input.joy.x = 0; Input.joy.y = 0;

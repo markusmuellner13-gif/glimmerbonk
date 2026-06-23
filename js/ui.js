@@ -89,6 +89,7 @@ function showGameOver() {
 
 /* ----------------------------- menu / character select ----------------------------- */
 function renderMenu() {
+  Music.stop();
   UI.menuStats.innerHTML =
     `<span>💎 ${Save.data.glimmer}</span><span>☠ ${Save.data.totalKills}</span><span>⏱ ${fmtTime(Save.data.bestTime)}</span>`;
   showScreen('menu');
@@ -269,7 +270,10 @@ function buildUI() {
       <button class="btn big" id="btnPlay">▶ PLAY</button>
       <button class="btn" id="btnShop">🛒 Shop</button>
       <button class="btn" id="btnAch">🏆 Achievements</button>
-      <button class="btn ghost" id="btnMute">🔊 Sound</button>
+      <div class="toggle-row">
+        <button class="btn ghost" id="btnMute">🔊 Sound</button>
+        <button class="btn ghost" id="btnMusic">🎵 Music</button>
+      </div>
     </div>
     <p class="hint">WASD / Arrows to move • Shift to dash • Esc to pause • Weapons auto-fire</p>
   </div>
@@ -331,11 +335,19 @@ function buildUI() {
   };
 
   // wire buttons
-  $('#btnPlay').onclick = renderCharSelect;
-  $('#btnShop').onclick = renderShop;
-  $('#btnAch').onclick = renderAch;
-  $('#btnMute').onclick = () => { Save.data.muted = !Save.data.muted; Save.save(); $('#btnMute').textContent = Save.data.muted ? '🔇 Muted' : '🔊 Sound'; };
+  const click = () => { Audio2.init(); Audio2.ui(); };
+  $('#btnPlay').onclick = () => { click(); renderCharSelect(); };
+  $('#btnShop').onclick = () => { click(); renderShop(); };
+  $('#btnAch').onclick = () => { click(); renderAch(); };
+  $('#btnMute').onclick = () => { Save.data.muted = !Save.data.muted; Save.save(); Music.setMuted(Save.data.muted); $('#btnMute').textContent = Save.data.muted ? '🔇 Muted' : '🔊 Sound'; };
   $('#btnMute').textContent = Save.data.muted ? '🔇 Muted' : '🔊 Sound';
+  $('#btnMusic').onclick = () => {
+    Save.data.musicOff = !Save.data.musicOff; Save.save();
+    if (Save.data.musicOff) Music.stop();
+    else if (['playing', 'paused', 'levelup'].includes(Game.state)) { Audio2.init(); Music.start(); }
+    $('#btnMusic').textContent = Save.data.musicOff ? '🎵 Music Off' : '🎵 Music On';
+  };
+  $('#btnMusic').textContent = Save.data.musicOff ? '🎵 Music Off' : '🎵 Music On';
   $('#pauseBtn').onclick = togglePause;
   $('#btnResume').onclick = togglePause;
   $('#btnQuit').onclick = quitToMenu;

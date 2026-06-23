@@ -26,7 +26,11 @@ const Save = {
       totalKills: 0,
       unlocked: ['bronte', 'pip', 'volt'],
       achievements: {},
-      shop: {},          // id -> level
+      shop: {},          // legacy global upgrades (migrated to shopChar)
+      shopChar: {},      // charId -> { itemId: level }  (per-character upgrades)
+      wkills: {},        // weaponKey -> total kills with that weapon
+      slimeFireKills: 0, // slimes killed with fireballs
+      bossKills: 0,
       bestTime: 0,
       bestLevel: 0,
       lastChar: 'bronte',
@@ -39,10 +43,37 @@ const Save = {
       const raw = localStorage.getItem(SAVE_KEY);
       this.data = raw ? Object.assign(this.defaults(), JSON.parse(raw)) : this.defaults();
     } catch (e) { this.data = this.defaults(); }
+    this.migrate();
     return this.data;
   },
+  // one-time: fold old global shop purchases into every owned character so
+  // nobody loses progress when upgrades became per-character.
+  migrate() {
+    const d = this.data;
+    if (!d.shopChar) d.shopChar = {};
+    if (!d.wkills) d.wkills = {};
+    if (d.slimeFireKills == null) d.slimeFireKills = 0;
+    if (d.bossKills == null) d.bossKills = 0;
+    const legacy = d.shop && Object.keys(d.shop).length;
+    if (legacy) {
+      for (const cid of d.unlocked) {
+        const bucket = d.shopChar[cid] || (d.shopChar[cid] = {});
+        for (const k in d.shop) bucket[k] = Math.max(bucket[k] || 0, d.shop[k] || 0);
+      }
+      d.shop = {}; // clear legacy so we don't re-grant
+      this.save();
+    }
+  },
   save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(this.data)); } catch (e) {} },
-  shopLevel(id) { return this.data.shop[id] || 0; },
+  // per-character upgrade level
+  shopLevel(id, charId) {
+    charId = charId || this.data.lastChar;
+    return (this.data.shopChar[charId] || {})[id] || 0;
+  },
+  buyShop(id, charId) {
+    const bucket = this.data.shopChar[charId] || (this.data.shopChar[charId] = {});
+    bucket[id] = (bucket[id] || 0) + 1;
+  },
 };
 
 /* ----------------------------- audio (procedural SFX synth) ----------------------------- */
@@ -289,7 +320,7 @@ function makePlayer(charDef) {
   let armor = charDef.armor || 0;
   let revives = 0;
   for (const item of SHOP) {
-    const lvl = Save.shopLevel(item.id);
+    const lvl = Save.shopLevel(item.id, charDef.id);
     if (!lvl) continue;
     const total = item.val * lvl;
     if (item.key === 'maxHpBonus') baseHp += total;
@@ -460,7 +491,7 @@ function fireWeapon(p, w, dt) {
       w.cd = def.cooldown / s.fireRateMult;
       const r = def.radius * s.area;
       for (const e of Game.enemies) {
-        if (dist2(p.x, p.y, e.x, e.y) < (r + e.radius) ** 2) damageEnemy(e, def.dmg * s.damage, p, def.color, false);
+        if (dist2(p.x, p.y, e.x, e.y) < (r + e.radius) ** 2) damageEnemy(e, def.dmg * s.damage, p, def.color, false, w.key);
       }
       spawnRing(p.x, p.y, r, def.color, 0.18);
     }
@@ -477,7 +508,7 @@ function fireWeapon(p, w, dt) {
     const n = def.count + s.projectileCount * 2;
     for (let i = 0; i < n; i++) {
       const a = (i / n) * TAU;
-      spawnBullet(p, p.x, p.y, a, def, s);
+      spawnBullet(p, p.x, p.y, a, def, s, w.key);
     }
     spawnRing(p.x, p.y, 40 * s.area, def.color, 0.15);
   } else if (def.behavior === 'spread') {
@@ -485,30 +516,30 @@ function fireWeapon(p, w, dt) {
     const baseA = Math.atan2(target.y - p.y, target.x - p.x);
     for (let i = 0; i < n; i++) {
       const off = (i - (n - 1) / 2) * def.spread;
-      spawnBullet(p, p.x, p.y, baseA + off, def, s);
+      spawnBullet(p, p.x, p.y, baseA + off, def, s, w.key);
     }
     muzzle(p, baseA, def.color);
   } else if (def.behavior === 'chain') {
-    chainLightning(p, target, def, s);
+    chainLightning(p, target, def, s, w.key);
   } else { // projectile
     const n = 1 + s.projectileCount;
     const baseA = Math.atan2(target.y - p.y, target.x - p.x);
     for (let i = 0; i < n; i++) {
       const off = (i - (n - 1) / 2) * 0.14;
-      spawnBullet(p, p.x, p.y, baseA + off, def, s);
+      spawnBullet(p, p.x, p.y, baseA + off, def, s, w.key);
     }
     muzzle(p, baseA, def.color);
   }
 }
 
-function spawnBullet(p, x, y, angle, def, s) {
+function spawnBullet(p, x, y, angle, def, s, wkey) {
   const spd = (def.speed || 500) * s.projectileSpeedMult;
   Game.bullets.push({
     x, y, px: x, py: y, vx: Math.cos(angle) * spd, vy: Math.sin(angle) * spd,
     dmg: def.dmg * s.damage, radius: (def.size || 6) * Math.sqrt(s.area),
     pierce: (def.pierce || 0) + s.pierce, hits: new Set(),
     life: (def.range || 600) / spd + 0.3, color: def.color,
-    crit: def.crit || 0, burn: def.burn || 0,
+    crit: def.crit || 0, burn: def.burn || 0, slow: def.slow || 0, wkey,
     kind: def.proj || 'bullet', angle, spin: rand(0, TAU), spinV: rand(-8, 8),
   });
 }
@@ -523,12 +554,12 @@ function muzzle(p, ang, color) {
   }
 }
 
-function chainLightning(p, first, def, s) {
+function chainLightning(p, first, def, s, wkey) {
   let target = first, from = { x: p.x, y: p.y };
   const hitSet = new Set();
   const jumps = def.jumps + Math.floor(s.projectileCount / 2);
   for (let j = 0; j <= jumps && target; j++) {
-    damageEnemy(target, def.dmg * s.damage, p, def.color, Math.random() < s.critChance);
+    damageEnemy(target, def.dmg * s.damage, p, def.color, Math.random() < s.critChance, wkey);
     spawnLightning(from.x, from.y, target.x, target.y, def.color);
     hitSet.add(target);
     from = { x: target.x, y: target.y };
@@ -544,7 +575,7 @@ function chainLightning(p, first, def, s) {
 }
 
 /* ----------------------------- damage / death ----------------------------- */
-function damageEnemy(e, amount, p, color, forceCrit) {
+function damageEnemy(e, amount, p, color, forceCrit, wkey) {
   const s = p.stats;
   let dmg = amount;
   let crit = forceCrit || Math.random() < s.critChance;
@@ -552,15 +583,23 @@ function damageEnemy(e, amount, p, color, forceCrit) {
   dmg = Math.max(1, dmg - (e.armor || 0));
   e.hp -= dmg;
   e.hitFlash = 0.08;
+  if (wkey) e._wkey = wkey; // remember the last weapon to hit (for kill credit)
   floater(e.x, e.y - e.radius, Math.round(dmg), crit ? '#ffe24a' : '#fff', crit);
-  if (e.hp <= 0) killEnemy(e, p);
+  if (e.hp <= 0) killEnemy(e, p, wkey);
 }
 
-function killEnemy(e, p) {
+function killEnemy(e, p, wkey) {
   const i = Game.enemies.indexOf(e);
   if (i < 0) return;
   Game.enemies.splice(i, 1);
   Game.killCount++; Save.data.totalKills++;
+  // weapon-kill tracking -> character unlocks
+  wkey = wkey || e._wkey;
+  if (wkey) {
+    Save.data.wkills[wkey] = (Save.data.wkills[wkey] || 0) + 1;
+    if (wkey === 'firenova' && e.type === 'slime') Save.data.slimeFireKills++;
+    checkWeaponAchievements();
+  }
   Audio2.hit();
   spawnBurst(e.x, e.y, e.color, e.boss ? 40 : 8);
   // drops
@@ -577,12 +616,22 @@ function killEnemy(e, p) {
     Game.bossActive = null;
     Game.cam.shake = 24;
     Music.setBoss(false);
+    Save.data.bossKills++;
     toast(e.name + ' slain! +' + e.glimmer + ' Glimmer');
     unlockAch('boss1');
   }
   // ach
   if (Save.data.totalKills >= 10) unlockAch('firstblood');
   if (Save.data.totalKills >= 1000) unlockAch('slayer1000');
+}
+
+// weapon-mastery achievements (unlock new characters)
+function checkWeaponAchievements() {
+  const w = Save.data.wkills;
+  if (Save.data.slimeFireKills >= 100) unlockAch('pyromaniac');
+  if ((w.chain || 0) >= 350) unlockAch('thunderlord');
+  if ((w.hammer || 0) >= 350) unlockAch('crushblow');
+  if ((w.arrow || 0) >= 500) unlockAch('volley');
 }
 
 function spawnEnemyBullet(e, tx, ty, spd, color) {
@@ -720,7 +769,7 @@ function update(dt) {
       for (const e of Game.enemies) {
         if (dist2(hx, hy, e.x, e.y) < (hitR + e.radius) ** 2) {
           if (!e._orbCd || e._orbCd <= 0) {
-            damageEnemy(e, w.def.dmg * p.stats.damage, p, w.def.color, false);
+            damageEnemy(e, w.def.dmg * p.stats.damage, p, w.def.color, false, w.key);
             e._orbCd = 0.25;
             // knockback
             const kd = Math.atan2(e.y - hy, e.x - hx);
@@ -736,7 +785,8 @@ function update(dt) {
     const e = Game.enemies[i];
     if (e._orbCd > 0) e._orbCd -= dt;
     if (e.hitFlash > 0) e.hitFlash -= dt;
-    if (e.burnT > 0) { e.burnT -= dt; e.hp -= e.burn * dt; if (e.hp <= 0) { killEnemy(e, p); continue; } }
+    if (e.burnT > 0) { e.burnT -= dt; e.hp -= e.burn * dt; if (e.hp <= 0) { killEnemy(e, p, e._wkey); continue; } }
+    if (e.slowT > 0) { e.slowT -= dt; if (e.slowT <= 0) e.slow = 1; }
     e.wob += dt * 6;
     let ang = Math.atan2(p.y - e.y, p.x - e.x);
     let sp = e.speed * (e.slow || 1);
@@ -788,8 +838,9 @@ function update(dt) {
       for (const e of Game.enemies) {
         if (b.hits.has(e)) continue;
         if (dist2(b.x, b.y, e.x, e.y) < (b.radius + e.radius) ** 2) {
-          damageEnemy(e, b.dmg, Game.player, b.color, b.crit && Math.random() < 0.5);
+          damageEnemy(e, b.dmg, Game.player, b.color, b.crit && Math.random() < 0.5, b.wkey);
           if (b.burn) { e.burn = b.burn; e.burnT = 2; }
+          if (b.slow && !e.boss) { e.slow = b.slow; e.slowT = 2.2; }
           b.hits.add(e);
           bulletImpact(b);
           Audio2.impact(b.kind);
@@ -1425,6 +1476,49 @@ function drawHeroSprite(g, id, color, accent, aim, t, flash, moving) {
     const dagger = () => { g.fillStyle = '#cfcfe0'; g.beginPath(); g.moveTo(R * 0.7, 0); g.lineTo(-R * 0.1, -R * 0.18); g.lineTo(-R * 0.2, 0); g.lineTo(-R * 0.1, R * 0.18); g.closePath(); g.fill(); g.fillStyle = dark; g.fillRect(-R * 0.28, -R * 0.1, R * 0.12, R * 0.2); };
     held(() => { g.translate(0, -R * 0.35); dagger(); });
     held(() => { g.translate(0, R * 0.35); dagger(); });
+  } else if (id === 'vesper') {           // radiant light-priestess, halo aura
+    const pulse = 0.85 + Math.sin(t * 3) * 0.15;
+    g.fillStyle = body; g.globalAlpha = 0.16 * pulse; g.beginPath(); g.arc(0, -R * 0.2, R * 1.5, 0, TAU); g.fill(); g.globalAlpha = 1;
+    g.fillStyle = dark; g.fillRect(-R * 0.45, R * 0.45 + step, R * 0.32, R * 0.6); g.fillRect(R * 0.13, R * 0.45 - step, R * 0.32, R * 0.6);
+    glowOn(); g.fillStyle = body; g.beginPath(); g.moveTo(0, -R * 0.4); g.lineTo(-R * 0.8, R * 1.0); g.lineTo(R * 0.8, R * 1.0); g.closePath(); g.fill(); glowOff();
+    g.fillStyle = skin; g.beginPath(); g.arc(0, -R * 0.55, R * 0.46, 0, TAU); g.fill();
+    // halo ring above the head
+    g.strokeStyle = '#fff7c0'; g.lineWidth = 2.4; g.shadowColor = body; g.shadowBlur = 12;
+    g.beginPath(); g.ellipse(0, -R * 1.12, R * 0.5, R * 0.18, 0, 0, TAU); g.stroke(); g.shadowBlur = 0;
+    face(0, -R * 0.52, R * 0.46, '#6b4d00');
+    held(() => { g.fillStyle = '#fff7c0'; g.shadowColor = body; g.shadowBlur = 14; g.beginPath(); g.arc(R * 0.45, -R * 0.4, R * 0.24 * pulse, 0, TAU); g.fill(); g.shadowBlur = 0; });
+  } else if (id === 'astra') {            // starseer, cloak with star motes
+    g.fillStyle = dark; g.fillRect(-R * 0.42, R * 0.45 + step, R * 0.3, R * 0.6); g.fillRect(R * 0.12, R * 0.45 - step, R * 0.3, R * 0.6);
+    glowOn(); g.fillStyle = body; g.beginPath(); g.moveTo(0, -R * 0.45); g.lineTo(-R * 0.86, R * 1.0); g.lineTo(R * 0.86, R * 1.0); g.closePath(); g.fill(); glowOff();
+    g.fillStyle = dark; g.beginPath(); g.moveTo(-R * 0.55, -R * 0.35); g.quadraticCurveTo(0, -R * 1.7, R * 0.55, -R * 0.35); g.quadraticCurveTo(0, -R * 0.7, -R * 0.55, -R * 0.35); g.fill();
+    g.fillStyle = skin; g.beginPath(); g.arc(0, -R * 0.5, R * 0.42, 0, TAU); g.fill();
+    // little stars twinkling on the cloak
+    for (let k = 0; k < 3; k++) { const tw = 0.4 + (Math.sin(t * 4 + k * 2) * 0.5 + 0.5) * 0.6; g.fillStyle = '#fff'; g.globalAlpha = tw; g.fillStyle = '#cfe0ff';
+      g.beginPath(); g.arc((k - 1) * R * 0.4, R * 0.35 + k * 2, R * 0.07, 0, TAU); g.fill(); }
+    g.globalAlpha = 1;
+    face(0, -R * 0.48, R * 0.42, '#1b2255');
+    held(() => { g.fillStyle = '#fff'; g.shadowColor = body; g.shadowBlur = 12; g.rotate(t * 2);
+      g.beginPath(); for (let i = 0; i < 8; i++) { const rr = i % 2 ? R * 0.12 : R * 0.3; const a = i / 8 * TAU; g.lineTo(Math.cos(a) * rr + R * 0.45, Math.sin(a) * rr - R * 0.4); } g.closePath(); g.fill(); g.shadowBlur = 0; });
+  } else if (id === 'glace') {            // frost knight, icy crystal pauldrons
+    g.fillStyle = dark; g.fillRect(-R * 0.5, R * 0.45 + step, R * 0.36, R * 0.6); g.fillRect(R * 0.14, R * 0.45 - step, R * 0.36, R * 0.6);
+    glowOn(); g.fillStyle = body; roundRect(-R * 0.92, -R * 0.32, R * 1.84, R * 1.02, R * 0.38, g); g.fill(); glowOff();
+    g.fillStyle = '#eafcff'; g.beginPath(); g.moveTo(-R * 0.92, -R * 0.4); g.lineTo(-R * 0.6, -R * 0.95); g.lineTo(-R * 0.32, -R * 0.4); g.closePath(); g.fill();
+    g.beginPath(); g.moveTo(R * 0.32, -R * 0.4); g.lineTo(R * 0.6, -R * 0.95); g.lineTo(R * 0.92, -R * 0.4); g.closePath(); g.fill();
+    g.fillStyle = skin; g.beginPath(); g.arc(0, -R * 0.62, R * 0.46, 0, TAU); g.fill();
+    g.fillStyle = '#dff7ff'; g.fillRect(-R * 0.5, -R * 0.95, R * 1.0, R * 0.26);
+    face(0, -R * 0.58, R * 0.46, '#0c3a4a');
+    held(() => { g.fillStyle = '#eafcff'; g.shadowColor = body; g.shadowBlur = 12; g.rotate(aim * 0 + sway);
+      g.beginPath(); g.moveTo(R * 0.8, 0); g.lineTo(R * 0.2, -R * 0.22); g.lineTo(R * 0.0, 0); g.lineTo(R * 0.2, R * 0.22); g.closePath(); g.fill(); g.shadowBlur = 0; });
+  } else if (id === 'sythe') {            // plague alchemist, hooded with vials
+    g.fillStyle = dark; g.fillRect(-R * 0.45, R * 0.45 + step, R * 0.32, R * 0.6); g.fillRect(R * 0.13, R * 0.45 - step, R * 0.32, R * 0.6);
+    glowOn(); g.fillStyle = body; g.beginPath(); g.moveTo(0, -R * 0.45); g.lineTo(-R * 0.82, R * 1.0); g.lineTo(R * 0.82, R * 1.0); g.closePath(); g.fill(); glowOff();
+    g.fillStyle = dark; g.beginPath(); g.moveTo(-R * 0.55, -R * 0.35); g.quadraticCurveTo(0, -R * 1.65, R * 0.55, -R * 0.35); g.quadraticCurveTo(0, -R * 0.7, -R * 0.55, -R * 0.35); g.fill();
+    // plague-mask beak
+    g.fillStyle = '#caf0a0'; g.beginPath(); g.arc(0, -R * 0.5, R * 0.4, 0.15, Math.PI - 0.15); g.fill();
+    g.fillStyle = dark; g.beginPath(); g.moveTo(-R * 0.1, -R * 0.42); g.lineTo(R * 0.55 * Math.cos(aim), -R * 0.42 + R * 0.4 * Math.sin(aim)); g.lineTo(R * 0.1, -R * 0.3); g.closePath(); g.fill();
+    g.fillStyle = '#9cff5a'; g.shadowColor = body; g.shadowBlur = 8; g.fillRect(-R * 0.28, -R * 0.58, R * 0.16, R * 0.08); g.fillRect(R * 0.12, -R * 0.58, R * 0.16, R * 0.08); g.shadowBlur = 0;
+    held(() => { g.fillStyle = '#9cff5a'; g.shadowColor = body; g.shadowBlur = 12; g.beginPath(); g.arc(R * 0.45, -R * 0.38, R * 0.2, 0, TAU); g.fill(); g.shadowBlur = 0;
+      g.fillStyle = '#dfffcf'; g.beginPath(); g.arc(R * 0.38, -R * 0.46, R * 0.07, 0, TAU); g.fill(); });
   } else {                                // generic fallback
     glowOn(); g.fillStyle = body; g.beginPath(); g.arc(0, 0, R, 0, TAU); g.fill(); glowOff();
     face(0, -R * 0.1, R);

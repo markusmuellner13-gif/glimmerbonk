@@ -58,6 +58,18 @@ const WEAPONS = {
     cooldown: 2.2, dmg: 26, count: 6, speed: 300, size: 12, range: 500, burn: 0,
     desc: "Calls down a slow ring of falling stars.",
   },
+  frost: {
+    name: "Frostlance", behavior: "projectile", color: "#7fdfff", proj: "star",
+    cooldown: 0.6, dmg: 14, speed: 520, count: 1, pierce: 2, size: 9, range: 600,
+    slow: 0.45,
+    desc: "Icy shards that pierce foes and chill them to a crawl.",
+  },
+  venom: {
+    name: "Plague Spit", behavior: "spread", color: "#9cff5a", proj: "bullet",
+    cooldown: 0.66, dmg: 8, speed: 440, count: 3, spread: 0.26, pierce: 1, size: 8, range: 520,
+    burn: 9,
+    desc: "A spray of toxic globs that poison everything they touch.",
+  },
 };
 
 /* ---------- CHARACTERS ---------- */
@@ -115,6 +127,42 @@ const CHARACTERS = [
     weapon: "dagger",
     stats: { damage: 1.0, critChance: 0.15, critMult: 0.5 },
     unlock: { ach: "glimmer1500", hint: "Bank 1500 Glimmer in total." },
+  },
+  {
+    id: "vesper", name: "Vesper Sunwell", title: "The Radiant",
+    color: "#ffe680", accent: "#6b4d00",
+    desc: "A living beacon wreathed in searing light. Unlocked by incinerating 100 Slimes with Cinderburst fireballs.",
+    maxHp: 104, speed: 1.06, armor: 1,
+    weapon: "aura",
+    stats: { damage: 1.0, area: 1.18 },
+    unlock: { ach: "pyromaniac", hint: "Incinerate 100 Slimes with fireballs (play Ember Vex)." },
+  },
+  {
+    id: "astra", name: "Astra Nightfall", title: "The Stargazer",
+    color: "#9db4ff", accent: "#1b2255",
+    desc: "Calls the heavens down on her foes. Unlocked by zapping 350 enemies with Stormcoil lightning.",
+    maxHp: 96, speed: 1.12, armor: 0,
+    weapon: "starfall",
+    stats: { damage: 1.05, area: 1.1 },
+    unlock: { ach: "thunderlord", hint: "Zap 350 enemies with chain lightning (play Volt)." },
+  },
+  {
+    id: "glace", name: "Glace Wintermend", title: "The Frostward",
+    color: "#7fdfff", accent: "#0c3a4a",
+    desc: "Freezes the swarm with piercing ice. Unlocked by bonking 350 enemies with Bonk Hammers.",
+    maxHp: 120, speed: 1.0, armor: 1,
+    weapon: "frost",
+    stats: { damage: 1.0, pierce: 0 },
+    unlock: { ach: "crushblow", hint: "Bonk 350 enemies with hammers (play Brontë)." },
+  },
+  {
+    id: "sythe", name: "Sythe Venomar", title: "The Plaguebearer",
+    color: "#9cff5a", accent: "#1f4a0c",
+    desc: "Drowns the horde in toxic rot. Unlocked by skewering 500 enemies with Quickbow arrows.",
+    maxHp: 100, speed: 1.1, armor: 0,
+    weapon: "venom",
+    stats: { damage: 1.0, fireRateMult: 1.05 },
+    unlock: { ach: "volley", hint: "Skewer 500 enemies with arrows (play Pip)." },
   },
 ];
 
@@ -206,4 +254,8 @@ const ACHIEVEMENTS = [
   { id:"glimmer1500",name:"Glimmer Hoarder", desc:"Bank 1500 Glimmer total. (Unlocks Nyx Shade)" },
   { id:"untouchable",name:"Untouchable",     desc:"Reach 3 minutes without taking a hit." },
   { id:"slayer1000", name:"Exterminator",    desc:"Kill 1000 enemies total." },
+  { id:"pyromaniac", name:"Pyromaniac",      desc:"Incinerate 100 Slimes with fireballs. (Unlocks Vesper Sunwell)" },
+  { id:"thunderlord",name:"Thunderlord",     desc:"Zap 350 enemies with chain lightning. (Unlocks Astra Nightfall)" },
+  { id:"crushblow",  name:"Crushing Blows",  desc:"Bonk 350 enemies with hammers. (Unlocks Glace Wintermend)" },
+  { id:"volley",     name:"Volley Master",   desc:"Skewer 500 enemies with arrows. (Unlocks Sythe Venomar)" },
 ];

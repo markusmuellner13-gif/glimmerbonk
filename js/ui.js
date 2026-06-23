@@ -136,16 +136,39 @@ function drawPortrait(cv, c) {
 }
 
 /* ----------------------------- shop ----------------------------- */
+function shopCharId() {
+  // which character's upgrades we're editing — default to last played, must be unlocked
+  if (!Game.shopCharId || !Save.data.unlocked.includes(Game.shopCharId)) {
+    Game.shopCharId = Save.data.unlocked.includes(Save.data.lastChar) ? Save.data.lastChar : Save.data.unlocked[0];
+  }
+  return Game.shopCharId;
+}
 function shopCost(item) {
-  const lvl = Save.shopLevel(item.id);
+  const lvl = Save.shopLevel(item.id, shopCharId());
   return Math.round(item.base * Math.pow(item.growth, lvl));
 }
 function renderShop() {
   UI.shopGlimmer.textContent = '💎 ' + Save.data.glimmer;
+  const cid = shopCharId();
+  const cdef = CHARACTERS.find(c => c.id === cid);
+
+  // character picker — upgrades are bought per Bonker now
+  const picker = UI.shopChars;
+  picker.innerHTML = '';
+  for (const c of CHARACTERS) {
+    if (!Save.data.unlocked.includes(c.id)) continue;
+    const tab = elFromHTML(`
+      <button class="shop-char ${c.id === cid ? 'active' : ''}" style="--cc:${c.color}">
+        <span class="sc-name">${c.name.split(' ')[0]}</span>
+      </button>`);
+    tab.addEventListener('click', () => { Audio2.init(); Audio2.ui(); Game.shopCharId = c.id; renderShop(); });
+    picker.appendChild(tab);
+  }
+
   const wrap = UI.shopGrid;
   wrap.innerHTML = '';
   for (const item of SHOP) {
-    const lvl = Save.shopLevel(item.id);
+    const lvl = Save.shopLevel(item.id, cid);
     const maxed = lvl >= item.max;
     const cost = shopCost(item);
     const afford = Save.data.glimmer >= cost && !maxed;
@@ -166,13 +189,14 @@ function renderShop() {
       const c = shopCost(item);
       if (Save.data.glimmer >= c) {
         Save.data.glimmer -= c;
-        Save.data.shop[item.id] = (Save.data.shop[item.id] || 0) + 1;
+        Save.buyShop(item.id, cid);
         Save.save(); Audio2.init(); Audio2.pickup();
         renderShop();
       } else toast('Not enough Glimmer');
     });
     wrap.appendChild(card);
   }
+  if (UI.shopSub) UI.shopSub.innerHTML = `Upgrading <b style="color:${cdef.color}">${cdef.name}</b> — upgrades are per-Bonker.`;
   showScreen('shop');
 }
 function pips(n, max) { let s = ''; for (let i = 0; i < max; i++) s += `<i class="${i < n ? 'on' : ''}"></i>`; return s; }
@@ -287,7 +311,8 @@ function buildUI() {
   <!-- SHOP -->
   <div class="screen" id="scr-shop">
     <div class="screen-head"><button class="btn back" data-back="menu">‹ Back</button><h2>Glimmer Forge</h2><span id="shopGlimmer">💎 0</span></div>
-    <p class="sub">Permanent upgrades — they carry into every run.</p>
+    <div id="shopChars" class="shop-chars"></div>
+    <p class="sub" id="shopSub">Permanent upgrades — they carry into every run.</p>
     <div id="shopGrid" class="shop-grid"></div>
   </div>
 
@@ -330,7 +355,7 @@ function buildUI() {
     lvl: $('#lvl'), timer: $('#timer'), glimmer: $('#glimmer'), kills: $('#kills'),
     toast: $('#toast'), perkCards: $('#perkCards'), goStats: $('#goStats'), goTitle: $('#goTitle'),
     menuStats: $('#menuStats'), charGrid: $('#charGrid'), shopGrid: $('#shopGrid'),
-    shopGlimmer: $('#shopGlimmer'), achGrid: $('#achGrid'),
+    shopGlimmer: $('#shopGlimmer'), shopChars: $('#shopChars'), shopSub: $('#shopSub'), achGrid: $('#achGrid'),
     joyZone: $('#joyzone'), joyBase: $('#joybase'), joyThumb: $('#joythumb'), dashBtn: $('#dashBtn'),
   };
 

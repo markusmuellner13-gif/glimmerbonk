@@ -54,7 +54,7 @@ body.in-game #hud{display:block;}
 .hud-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;font-weight:800;font-size:15px;}
 #glimmer{color:var(--gold);text-shadow:0 0 8px #ffd24a55;}
 #kills{color:var(--muted);}
-#pauseBtn{position:absolute;top:44px;right:14px;width:40px;height:40px;border-radius:12px;
+#pauseBtn{position:absolute;top:64px;right:14px;width:40px;height:40px;border-radius:12px;
   background:var(--panel);border:2px solid var(--line);color:var(--txt);font-size:16px;display:none;cursor:pointer;}
 body.in-game #pauseBtn{display:block;}
 
@@ -188,8 +188,10 @@ body.touch.in-game #dashBtn{display:block;}
 /* ---- short / landscape viewports (phone turned sideways) ----
    keep every screen top-aligned & scrollable so text never overlaps */
 @media (max-height:560px){
-  .screen{padding-top:10px;padding-bottom:16px;justify-content:flex-start;}
-  .screen.overlay{justify-content:flex-start;}
+  /* tall, list-style screens (menu/shop/chars/gameover): top-align & scroll
+     so nothing overlaps. Overlays that are short (level-up, pause) stay centered. */
+  .screen:not(.overlay){padding-top:10px;padding-bottom:16px;justify-content:flex-start;}
+  .screen.overlay{padding-top:10px;padding-bottom:16px;justify-content:flex-start;}
   .logo{margin-top:6px;}
   .logo h1{font-size:clamp(28px,8.5vh,54px);}
   .tag{margin-top:4px;}
@@ -203,24 +205,30 @@ body.touch.in-game #dashBtn{display:block;}
   .screen-head{margin-bottom:2px;}
   .screen-head h2{font-size:19px;}
   .sub{margin:2px 0 8px;}
-  .lvlup-title{font-size:clamp(22px,6.5vh,34px);}
-  .perk-cards{gap:10px;margin-top:4px;}
-  .perk-card{min-height:auto;width:152px;padding:10px 8px;gap:5px;}
-  .perk-icon{font-size:28px;}
-  .perk-name{font-size:14px;}
-  .perk-desc{font-size:11.5px;}
-  .perk-lvl{margin-top:6px;}
   .go-title{margin-bottom:10px;}
   .go-stats{margin-bottom:10px;}
   .go-row{padding:4px 0;font-size:14px;}
   #toast{top:62px;}
+
+  /* level-up: keep it big & centered like the original, just trimmed enough
+     to fit a short screen. Centered vertically so it feels prominent again. */
+  #scr-levelup{justify-content:center;padding-top:10px;}
+  .lvlup-title{font-size:clamp(26px,7vh,42px);}
+  .perk-cards{gap:12px;margin-top:6px;}
+  .perk-card{min-height:170px;width:180px;padding:16px 12px;gap:8px;}
+  .perk-icon{font-size:36px;}
+  .perk-name{font-size:16px;}
+  .perk-desc{font-size:12.5px;}
 }
 /* landscape specifically: keep the level-up cards on one row & tighten grids */
 @media (max-height:480px) and (orientation:landscape){
   .perk-cards{flex-wrap:nowrap;max-width:none;}
   .char-grid{grid-template-columns:repeat(auto-fill,minmax(190px,1fr));}
   .hud-row{top:8px;}
-  #pauseBtn{top:36px;}
+  #pauseBtn{top:56px;}
+  /* very short: shrink level-up just enough to fit a single centered row */
+  .perk-card{min-height:150px;width:160px;padding:12px 10px;}
+  .perk-icon{font-size:32px;}
 }
 @media (min-width:900px) and (pointer:fine){
   /* desktop: nudge HUD timer bigger */

@@ -301,6 +301,8 @@ function resize() {
   zoom = clamp(minDim / 760, 0.62, 1.5);
 }
 addEventListener('resize', resize);
+addEventListener('orientationchange', () => { resize(); setTimeout(resize, 250); });
+if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);
 
 /* ----------------------------- player factory ----------------------------- */
 function freshStats() {
@@ -1590,6 +1592,9 @@ function frame() {
   let dt = (t - lastT) / 1000;
   lastT = t;
   dt = Math.min(dt, 0.05);
+  // keep the canvas locked to the viewport — covers mobile rotation / browser
+  // chrome show-hide where the 'resize' event can fire before things settle
+  if (window.innerWidth !== W || window.innerHeight !== H) resize();
   if (!Game.paused && Game.state === 'playing') update(dt);
   render();
   requestAnimationFrame(frame);

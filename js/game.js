@@ -1676,10 +1676,14 @@ function gameOver() {
   if (Save.data.totalGlimmer >= 1500) unlockAch('glimmer1500');
   if (Save.data.totalGlimmer >= 6000) unlockAch('glimmerlord');
   Save.save();
-  showGameOver();
+  // celebrate any characters unlocked this run, then show the results screen
+  if (unlockQueue.length) showUnlockCelebration(unlockQueue.splice(0), showGameOver);
+  else showGameOver();
 }
 
 /* ----------------------------- achievements ----------------------------- */
+// characters unlocked during the current run, shown on a celebration screen at run end
+const unlockQueue = [];
 function unlockAch(id) {
   if (Save.data.achievements[id]) return;
   Save.data.achievements[id] = true;
@@ -1691,6 +1695,7 @@ function unlockAch(id) {
     if (c.unlock && c.unlock.ach === id && !Save.data.unlocked.includes(c.id)) {
       Save.data.unlocked.push(c.id); Save.save();
       setTimeout(() => toast('★ New character: ' + c.name + '!'), 1200);
+      unlockQueue.push(c);
     }
   }
 }

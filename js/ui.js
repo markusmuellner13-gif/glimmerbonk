@@ -120,19 +120,47 @@ function renderCharSelect() {
   showScreen('charselect');
 }
 
-function drawPortrait(cv, c) {
+function drawPortrait(cv, c, size = 96) {
   const x = cv.getContext('2d');
-  x.clearRect(0, 0, 96, 96);
+  const s = size / 96;
+  x.clearRect(0, 0, size, size);
   // soft glow backdrop
   x.fillStyle = c.color; x.globalAlpha = 0.10;
-  x.beginPath(); x.arc(48, 50, 40, 0, Math.PI * 2); x.fill(); x.globalAlpha = 1;
+  x.beginPath(); x.arc(size / 2, size * 0.52, 40 * s, 0, Math.PI * 2); x.fill(); x.globalAlpha = 1;
   // ground shadow
   x.globalAlpha = 0.25; x.fillStyle = '#000';
-  x.beginPath(); x.ellipse(48, 78, 22, 7, 0, 0, Math.PI * 2); x.fill(); x.globalAlpha = 1;
-  x.save(); x.translate(48, 54); x.scale(1.85, 1.85);
+  x.beginPath(); x.ellipse(size / 2, size * 0.81, 22 * s, 7 * s, 0, 0, Math.PI * 2); x.fill(); x.globalAlpha = 1;
+  x.save(); x.translate(size / 2, size * 0.5625); x.scale(1.85 * s, 1.85 * s);
   // aim up-right so held weapons read nicely
   drawHeroSprite(x, c.id, c.color, c.accent, -0.5, 0, false, false);
   x.restore();
+}
+
+/* ----------------------------- unlock celebration ----------------------------- */
+let unlockContinue = null;
+function showUnlockCelebration(chars, onContinue) {
+  unlockContinue = onContinue || null;
+  const wrap = UI.unlockCards;
+  wrap.innerHTML = '';
+  UI.unlockTitle.textContent = chars.length > 1 ? 'NEW BONKERS UNLOCKED!' : 'NEW BONKER UNLOCKED!';
+  for (const c of chars) {
+    const blurb = c.desc.split('. Unlocked')[0] + '.';
+    const card = elFromHTML(`
+      <div class="unlock-card" style="--cc:${c.color}">
+        <div class="char-portrait big"><canvas width="132" height="132"></canvas></div>
+        <div class="char-name">${c.name}</div>
+        <div class="char-title">${c.title}</div>
+        <div class="char-desc">${blurb}</div>
+        <div class="char-stats">
+          <span>❤ ${c.maxHp}</span><span>👟 ${c.speed.toFixed(2)}x</span><span>🛡 ${c.armor || 0}</span>
+          <span>⚔ ${WEAPONS[c.weapon].name}</span>
+        </div>
+      </div>`);
+    drawPortrait(card.querySelector('canvas'), c, 132);
+    wrap.appendChild(card);
+  }
+  try { Audio2.init(); Audio2.level && Audio2.level(); } catch (e) {}
+  showScreen('unlock');
 }
 
 /* ----------------------------- shop ----------------------------- */
@@ -228,9 +256,14 @@ function achProgress(id) {
 function renderAch() {
   const wrap = UI.achGrid;
   wrap.innerHTML = '';
-  for (const a of ACHIEVEMENTS) {
-    const done = Save.data.achievements[a.id];
+  // order: locked achievements first, closest-to-complete on top; earned ones last
+  const items = ACHIEVEMENTS.map(a => {
+    const done = !!Save.data.achievements[a.id];
     const pr = achProgress(a.id);
+    const pct = done ? 1 : (pr ? Math.min(1, pr.cur / pr.target) : 0);
+    return { a, done, pr, pct };
+  }).sort((x, y) => (x.done - y.done) || (y.pct - x.pct));
+  for (const { a, done, pr } of items) {
     let bar = '';
     if (pr) {
       const cur = Math.min(pr.cur, pr.target);
@@ -381,6 +414,14 @@ function buildUI() {
       <button class="btn" id="btnGoShop">🛒 Shop</button>
       <button class="btn ghost" id="btnGoMenu">⌂ Menu</button>
     </div>
+  </div>
+
+  <!-- UNLOCK CELEBRATION -->
+  <div class="screen overlay" id="scr-unlock">
+    <div class="unlock-burst"></div>
+    <h2 class="unlock-title" id="unlockTitle">NEW BONKER UNLOCKED!</h2>
+    <div id="unlockCards" class="unlock-cards"></div>
+    <button class="btn big" id="btnUnlockCont">Continue ▶</button>
   </div>`;
 
   // cache refs
@@ -390,6 +431,7 @@ function buildUI() {
     toast: $('#toast'), perkCards: $('#perkCards'), goStats: $('#goStats'), goTitle: $('#goTitle'),
     menuStats: $('#menuStats'), charGrid: $('#charGrid'), shopGrid: $('#shopGrid'),
     shopGlimmer: $('#shopGlimmer'), shopChars: $('#shopChars'), shopSub: $('#shopSub'), achGrid: $('#achGrid'),
+    unlockCards: $('#unlockCards'), unlockTitle: $('#unlockTitle'),
     joyZone: $('#joyzone'), joyBase: $('#joybase'), joyThumb: $('#joythumb'), dashBtn: $('#dashBtn'),
   };
 
@@ -413,6 +455,7 @@ function buildUI() {
   $('#btnRetry').onclick = () => startRun(Game.char.id);
   $('#btnGoShop').onclick = renderShop;
   $('#btnGoMenu').onclick = renderMenu;
+  $('#btnUnlockCont').onclick = () => { Audio2.ui(); const cb = unlockContinue; unlockContinue = null; if (cb) cb(); };
   document.querySelectorAll('[data-back]').forEach(b => b.onclick = () => {
     if (b.dataset.back === 'menu') renderMenu();
   });
@@ -425,8 +468,12 @@ function quitToMenu() {
   // bank glimmer earned so far
   Save.data.glimmer += Game.glimmerRun;
   Save.data.totalGlimmer += Game.glimmerRun;
+  if (Save.data.totalGlimmer >= 1500) unlockAch('glimmer1500');
+  if (Save.data.totalGlimmer >= 6000) unlockAch('glimmerlord');
   Save.save();
   Game.state = 'menu'; Game.paused = true;
   Game.glimmerRun = 0;
-  renderMenu();
+  // celebrate anything unlocked this run before dropping back to the menu
+  if (unlockQueue.length) showUnlockCelebration(unlockQueue.splice(0), renderMenu);
+  else renderMenu();
 }

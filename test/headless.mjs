@@ -54,6 +54,17 @@ const document = {
 };
 
 let rafCount = 0;
+// Deterministic RNG so the smoke test is reproducible (the game uses Math.random
+// heavily for spawns/drops; a fixed seed keeps runs identical across CI runs).
+let __seed = 0x1a2b3c4d;
+function seededRandom() {
+  __seed = (__seed + 0x6D2B79F5) | 0;
+  let t = Math.imul(__seed ^ (__seed >>> 15), 1 | __seed);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+const SeededMath = Object.create(Math);
+SeededMath.random = seededRandom;
 const sandbox = {
   document, localStorage, console,
   navigator: { maxTouchPoints: 0, userAgent: 'node' },
@@ -62,7 +73,7 @@ const sandbox = {
   cancelAnimationFrame: noop,
   addEventListener: noop,
   setTimeout: () => 0, clearTimeout: noop,
-  Math, Date, JSON, Set, Map, Object, Array, isNaN, parseInt, parseFloat,
+  Math: SeededMath, Date, JSON, Set, Map, Object, Array, isNaN, parseInt, parseFloat,
   Infinity, NaN, undefined,
 };
 sandbox.window = sandbox;
@@ -99,7 +110,7 @@ vm.createContext(sandbox);
 
 /* concatenate the three scripts exactly like the browser's shared global scope */
 const src = [read('js/config.js'), read('js/ui.js'), read('js/game.js')].join('\n;\n')
-  + '\n;globalThis.__T = { update, render, Game, Save, startRun, choosePerk, triggerDash, currentBiome, spawnBoss, Input };';
+  + '\n;globalThis.__T = { update, render, Game, Save, startRun, choosePerk, triggerDash, currentBiome, spawnBoss, Input, renderAch, showUnlockCelebration, CHARACTERS };';
 
 let pass = true;
 try {
@@ -164,6 +175,12 @@ try {
     T.startRun(c);
     step(6);
   }
+
+  // exercise menu render paths: achievement screen (with progress bars/sort) + unlock celebration
+  T.renderAch();
+  T.showUnlockCelebration([T.CHARACTERS.find(c => c.id === 'veil')], () => {});
+  T.showUnlockCelebration(T.CHARACTERS.slice(-2), () => {}); // multi-unlock layout
+  console.log('  achievement screen + unlock celebration rendered OK');
 
   console.log('\n✅ HEADLESS TEST PASSED — no runtime errors across all characters, weapons, boss, biomes, level-ups, dash, render.');
   console.log('   rAF scheduled:', rafCount, '| total kills in session:', sandbox.__T.Save?.data?.totalKills ?? 'n/a');

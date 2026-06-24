@@ -6,7 +6,12 @@
   "scripts": {
     "icons": "node scripts/gen-icons.mjs",
     "dev": "node scripts/serve.mjs",
-    "build": "node scripts/gen-icons.mjs"
+    "build": "node scripts/gen-icons.mjs",
+    "test": "node test/headless.mjs",
+    "test:visual": "node test/visual.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.0"
   },
   "license": "MIT"
 }

@@ -70,6 +70,26 @@ const WEAPONS = {
     burn: 9,
     desc: "A spray of toxic globs that poison everything they touch.",
   },
+  quake: {
+    name: "Tremor Maul", behavior: "nova", color: "#d9a066", proj: "bone",
+    cooldown: 1.7, dmg: 30, count: 8, speed: 300, size: 13, range: 380, burn: 0,
+    desc: "Slams the earth, hurling a ring of jagged stone.",
+  },
+  railspike: {
+    name: "Railspike", behavior: "projectile", color: "#ff4d6d", proj: "arrow",
+    cooldown: 0.85, dmg: 34, speed: 820, count: 1, pierce: 5, size: 9, range: 760,
+    desc: "A piercing rail-shot that punches through entire columns of foes.",
+  },
+  scattershot: {
+    name: "Boomstick", behavior: "spread", color: "#ffba49", proj: "bullet",
+    cooldown: 0.8, dmg: 9, speed: 560, count: 6, spread: 0.5, pierce: 1, size: 7, range: 360,
+    desc: "A wide blast of pellets that shreds anything close.",
+  },
+  tempest: {
+    name: "Galeblades", behavior: "orbit", color: "#8effd6",
+    cooldown: 0, dmg: 13, count: 4, radius: 64, orbitSpeed: 4.4, size: 13,
+    desc: "Whirling wind-blades spin in a fast, tight ring.",
+  },
 };
 
 /* ---------- CHARACTERS ---------- */
@@ -163,6 +183,42 @@ const CHARACTERS = [
     weapon: "venom",
     stats: { damage: 1.0, fireRateMult: 1.05 },
     unlock: { ach: "volley", hint: "Skewer 500 enemies with arrows (play Pip)." },
+  },
+  {
+    id: "thorne", name: "Thorne Quakebrand", title: "The Bedrock",
+    color: "#d9a066", accent: "#4a2f12",
+    desc: "An earthshaker who outlasts anything. Unlocked by surviving 10 minutes in one run.",
+    maxHp: 170, speed: 0.95, armor: 3,
+    weapon: "quake",
+    stats: { damage: 1.0, area: 1.2 },
+    unlock: { ach: "marathon", hint: "Survive 10 minutes in a single run." },
+  },
+  {
+    id: "silas", name: "Silas Longshot", title: "The Deadeye",
+    color: "#ff4d6d", accent: "#52111f",
+    desc: "A sharpshooter whose rail-spikes skewer whole ranks. Unlocked by slaying 5000 enemies total.",
+    maxHp: 90, speed: 1.14, armor: 0,
+    weapon: "railspike",
+    stats: { damage: 1.05, pierce: 0 },
+    unlock: { ach: "annihilator", hint: "Slay 5000 enemies in total." },
+  },
+  {
+    id: "cass", name: "Cass Boomer", title: "The Demolisher",
+    color: "#ffba49", accent: "#5a3d00",
+    desc: "Point-blank chaos with a wall of pellets. Unlocked by defeating 10 bosses total.",
+    maxHp: 112, speed: 1.08, armor: 1,
+    weapon: "scattershot",
+    stats: { damage: 1.0 },
+    unlock: { ach: "bossbane", hint: "Defeat 10 bosses in total." },
+  },
+  {
+    id: "zephyr", name: "Zephyr Galewind", title: "The Tempest",
+    color: "#8effd6", accent: "#0c4a3a",
+    desc: "A wind-dancer ringed in whirling blades. Unlocked by banking 6000 Glimmer in total.",
+    maxHp: 104, speed: 1.2, armor: 0,
+    weapon: "tempest",
+    stats: { damage: 1.0, area: 1.1 },
+    unlock: { ach: "glimmerlord", hint: "Bank 6000 Glimmer in total." },
   },
 ];
 
@@ -258,4 +314,8 @@ const ACHIEVEMENTS = [
   { id:"thunderlord",name:"Thunderlord",     desc:"Zap 350 enemies with chain lightning. (Unlocks Astra Nightfall)" },
   { id:"crushblow",  name:"Crushing Blows",  desc:"Bonk 350 enemies with hammers. (Unlocks Glace Wintermend)" },
   { id:"volley",     name:"Volley Master",   desc:"Skewer 500 enemies with arrows. (Unlocks Sythe Venomar)" },
+  { id:"marathon",   name:"Marathon",        desc:"Survive 10 minutes in one run. (Unlocks Thorne Quakebrand)" },
+  { id:"annihilator",name:"Annihilator",     desc:"Slay 5000 enemies total. (Unlocks Silas Longshot)" },
+  { id:"bossbane",   name:"Bossbane",        desc:"Defeat 10 bosses total. (Unlocks Cass Boomer)" },
+  { id:"glimmerlord",name:"Glimmer Lord",    desc:"Bank 6000 Glimmer total. (Unlocks Zephyr Galewind)" },
 ];

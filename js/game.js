@@ -621,10 +621,12 @@ function killEnemy(e, p, wkey) {
     Save.data.bossKills++;
     toast(e.name + ' slain! +' + e.glimmer + ' Glimmer');
     unlockAch('boss1');
+    if (Save.data.bossKills >= 10) unlockAch('bossbane');
   }
   // ach
   if (Save.data.totalKills >= 10) unlockAch('firstblood');
   if (Save.data.totalKills >= 1000) unlockAch('slayer1000');
+  if (Save.data.totalKills >= 5000) unlockAch('annihilator');
 }
 
 // weapon-mastery achievements (unlock new characters)
@@ -727,6 +729,7 @@ function update(dt) {
 
   // achievements time-based
   if (Game.t >= 300) unlockAch('survive5');
+  if (Game.t >= 600) unlockAch('marathon');
   if (Game.t >= 180 && Game.noHit) unlockAch('untouchable');
 
   // movement
@@ -1521,6 +1524,38 @@ function drawHeroSprite(g, id, color, accent, aim, t, flash, moving) {
     g.fillStyle = '#9cff5a'; g.shadowColor = body; g.shadowBlur = 8; g.fillRect(-R * 0.28, -R * 0.58, R * 0.16, R * 0.08); g.fillRect(R * 0.12, -R * 0.58, R * 0.16, R * 0.08); g.shadowBlur = 0;
     held(() => { g.fillStyle = '#9cff5a'; g.shadowColor = body; g.shadowBlur = 12; g.beginPath(); g.arc(R * 0.45, -R * 0.38, R * 0.2, 0, TAU); g.fill(); g.shadowBlur = 0;
       g.fillStyle = '#dfffcf'; g.beginPath(); g.arc(R * 0.38, -R * 0.46, R * 0.07, 0, TAU); g.fill(); });
+  } else if (id === 'thorne') {           // earthshaker, boulder pauldrons + stone maul
+    g.fillStyle = dark; g.fillRect(-R * 0.55, R * 0.45 + step, R * 0.42, R * 0.6); g.fillRect(R * 0.13, R * 0.45 - step, R * 0.42, R * 0.6);
+    glowOn(); g.fillStyle = body; roundRect(-R * 0.95, -R * 0.32, R * 1.9, R * 1.02, R * 0.36, g); g.fill(); glowOff();
+    g.fillStyle = '#7a5230'; g.beginPath(); g.arc(-R * 0.95, -R * 0.25, R * 0.5, 0, TAU); g.arc(R * 0.95, -R * 0.25, R * 0.5, 0, TAU); g.fill();
+    g.fillStyle = skin; g.beginPath(); g.arc(0, -R * 0.66, R * 0.5, 0, TAU); g.fill();
+    g.fillStyle = '#6b4326'; g.fillRect(-R * 0.5, -R * 0.98, R * 1.0, R * 0.26);
+    face(0, -R * 0.62, R * 0.5, '#3a2410');
+    held(() => { g.fillStyle = '#9a7250'; g.shadowColor = body; g.shadowBlur = 10; roundRect(R * 0.2, -R * 0.3, R * 0.58, R * 0.6, R * 0.12, g); g.fill(); g.shadowBlur = 0; });
+  } else if (id === 'silas') {            // deadeye sniper, capped, long rail-rifle
+    g.fillStyle = dark; g.fillRect(-R * 0.42, R * 0.45 + step, R * 0.3, R * 0.6); g.fillRect(R * 0.12, R * 0.45 - step, R * 0.3, R * 0.6);
+    glowOn(); g.fillStyle = body; roundRect(-R * 0.56, -R * 0.3, R * 1.12, R * 1.0, R * 0.4, g); g.fill(); glowOff();
+    g.fillStyle = skin; g.beginPath(); g.arc(0, -R * 0.58, R * 0.46, 0, TAU); g.fill();
+    g.fillStyle = dark; g.fillRect(-R * 0.5, -R * 0.92, R * 1.0, R * 0.2);
+    g.fillStyle = body; g.fillRect(-R * 0.42, -R * 1.04, R * 0.84, R * 0.16);
+    face(0, -R * 0.54, R * 0.46, '#52111f');
+    held(() => { g.strokeStyle = '#2a2a33'; g.lineWidth = 3; g.lineCap = 'round'; g.beginPath(); g.moveTo(-R * 0.2, 0); g.lineTo(R * 1.15, 0); g.stroke(); g.lineCap = 'butt'; g.fillStyle = body; g.shadowColor = color; g.shadowBlur = 11; g.beginPath(); g.arc(R * 1.15, 0, R * 0.12, 0, TAU); g.fill(); g.shadowBlur = 0; });
+  } else if (id === 'cass') {             // demolisher gunner, big boomstick
+    g.fillStyle = dark; g.fillRect(-R * 0.48, R * 0.45 + step, R * 0.34, R * 0.6); g.fillRect(R * 0.14, R * 0.45 - step, R * 0.34, R * 0.6);
+    glowOn(); g.fillStyle = body; roundRect(-R * 0.72, -R * 0.32, R * 1.44, R * 1.02, R * 0.4, g); g.fill(); glowOff();
+    g.fillStyle = skin; g.beginPath(); g.arc(0, -R * 0.6, R * 0.46, 0, TAU); g.fill();
+    g.fillStyle = '#6b4d00'; g.beginPath(); g.arc(0, -R * 0.66, R * 0.5, Math.PI, TAU); g.fill();
+    face(0, -R * 0.56, R * 0.46, '#5a3d00');
+    held(() => { g.fillStyle = '#3a2a18'; roundRect(-R * 0.1, -R * 0.16, R * 0.62, R * 0.32, R * 0.06, g); g.fill(); g.fillStyle = '#2a2a33'; g.fillRect(R * 0.5, -R * 0.2, R * 0.5, R * 0.4); g.fillStyle = '#ffba49'; g.shadowColor = color; g.shadowBlur = 10; g.fillRect(R * 0.98, -R * 0.16, R * 0.1, R * 0.32); g.shadowBlur = 0; });
+  } else if (id === 'zephyr') {           // wind-dancer, flowing scarf + wind ring
+    g.fillStyle = dark; g.fillRect(-R * 0.4, R * 0.45 + step, R * 0.28, R * 0.6); g.fillRect(R * 0.12, R * 0.45 - step, R * 0.28, R * 0.6);
+    g.fillStyle = body; g.globalAlpha = 0.45; g.beginPath(); g.moveTo(-R * 0.3, -R * 0.2); g.quadraticCurveTo(-R * 1.3, R * 0.1 + Math.sin(t * 5) * R * 0.3, -R * 1.5, R * 0.6); g.quadraticCurveTo(-R * 0.9, R * 0.2, -R * 0.3, R * 0.2); g.fill(); g.globalAlpha = 1;
+    glowOn(); g.fillStyle = body; roundRect(-R * 0.5, -R * 0.3, R * 1.0, R * 1.0, R * 0.4, g); g.fill(); glowOff();
+    g.fillStyle = skin; g.beginPath(); g.arc(0, -R * 0.58, R * 0.44, 0, TAU); g.fill();
+    g.fillStyle = body; g.fillRect(-R * 0.46, -R * 0.92, R * 0.92, R * 0.18);
+    g.strokeStyle = body; g.lineWidth = 1.5; g.beginPath(); g.moveTo(R * 0.42, -R * 0.86); g.lineTo(R * 0.92, -R * 0.7 + Math.sin(t * 6) * 2); g.stroke();
+    face(0, -R * 0.54, R * 0.44, '#0c4a3a');
+    held(() => { g.strokeStyle = '#eafff7'; g.lineWidth = 2.4; g.shadowColor = color; g.shadowBlur = 10; g.beginPath(); g.arc(0, 0, R * 0.6, -1.2, 1.2); g.stroke(); g.shadowBlur = 0; });
   } else {                                // generic fallback
     glowOn(); g.fillStyle = body; g.beginPath(); g.arc(0, 0, R, 0, TAU); g.fill(); glowOff();
     face(0, -R * 0.1, R);
@@ -1610,6 +1645,7 @@ function gameOver() {
   if (Game.t > Save.data.bestTime) Save.data.bestTime = Game.t;
   if (Game.player.level > Save.data.bestLevel) Save.data.bestLevel = Game.player.level;
   if (Save.data.totalGlimmer >= 1500) unlockAch('glimmer1500');
+  if (Save.data.totalGlimmer >= 6000) unlockAch('glimmerlord');
   Save.save();
   showGameOver();
 }

@@ -33,6 +33,7 @@ const Save = {
       bossKills: 0,
       bestTime: 0,
       bestLevel: 0,
+      bestNoHitTime: 0,  // longest stretch from run start before first hit
       lastChar: 'bronte',
       muted: false,
       musicOff: false,
@@ -54,6 +55,7 @@ const Save = {
     if (!d.wkills) d.wkills = {};
     if (d.slimeFireKills == null) d.slimeFireKills = 0;
     if (d.bossKills == null) d.bossKills = 0;
+    if (d.bestNoHitTime == null) d.bestNoHitTime = 0;
     const legacy = d.shop && Object.keys(d.shop).length;
     if (legacy) {
       for (const cid of d.unlocked) {
@@ -730,7 +732,11 @@ function update(dt) {
   // achievements time-based
   if (Game.t >= 300) unlockAch('survive5');
   if (Game.t >= 600) unlockAch('marathon');
-  if (Game.t >= 180 && Game.noHit) unlockAch('untouchable');
+  if (Game.noHit) {
+    if (Game.t > Save.data.bestNoHitTime) Save.data.bestNoHitTime = Game.t;
+    if (Game.t >= 180) unlockAch('untouchable');
+    if (Game.t >= 300) unlockAch('flawless');
+  }
 
   // movement
   const mv = moveVector();
@@ -1556,6 +1562,29 @@ function drawHeroSprite(g, id, color, accent, aim, t, flash, moving) {
     g.strokeStyle = body; g.lineWidth = 1.5; g.beginPath(); g.moveTo(R * 0.42, -R * 0.86); g.lineTo(R * 0.92, -R * 0.7 + Math.sin(t * 6) * 2); g.stroke();
     face(0, -R * 0.54, R * 0.44, '#0c4a3a');
     held(() => { g.strokeStyle = '#eafff7'; g.lineWidth = 2.4; g.shadowColor = color; g.shadowBlur = 10; g.beginPath(); g.arc(0, 0, R * 0.6, -1.2, 1.2); g.stroke(); g.shadowBlur = 0; });
+  } else if (id === 'veil') {             // phantom, translucent wispy tail
+    g.globalAlpha = 0.78;
+    glowOn();
+    // wispy tattered lower body (3 drifting tendrils)
+    g.fillStyle = body;
+    g.beginPath(); g.moveTo(-R * 0.55, -R * 0.2);
+    for (let k = -1; k <= 1; k++) {
+      const wob = Math.sin(t * 4 + k * 1.7) * R * 0.18;
+      g.lineTo(k * R * 0.4 - R * 0.18, R * (1.05 + (k === 0 ? 0.2 : 0)) + wob);
+      g.lineTo(k * R * 0.4 + R * 0.18, R * 0.7 + wob);
+    }
+    g.lineTo(R * 0.55, -R * 0.2); g.closePath(); g.fill();
+    // upper body / hood
+    g.beginPath(); g.arc(0, -R * 0.3, R * 0.62, 0, TAU); g.fill();
+    g.beginPath(); g.moveTo(-R * 0.6, -R * 0.3); g.quadraticCurveTo(0, -R * 1.75, R * 0.6, -R * 0.3); g.quadraticCurveTo(0, -R * 0.8, -R * 0.6, -R * 0.3); g.fill();
+    glowOff();
+    // shadowed face with glowing eyes
+    g.fillStyle = '#1a2330'; g.beginPath(); g.arc(0, -R * 0.4, R * 0.4, 0.1, Math.PI - 0.1); g.fill();
+    g.fillStyle = '#dffaff'; g.shadowColor = '#dffaff'; g.shadowBlur = 8;
+    const lx = Math.cos(aim) * R * 0.06, ly = Math.sin(aim) * R * 0.06;
+    g.beginPath(); g.arc(-R * 0.18 + lx, -R * 0.46 + ly, R * 0.1, 0, TAU); g.arc(R * 0.18 + lx, -R * 0.46 + ly, R * 0.1, 0, TAU); g.fill(); g.shadowBlur = 0;
+    g.globalAlpha = 1;
+    held(() => { g.fillStyle = '#dffaff'; g.shadowColor = color; g.shadowBlur = 12; g.beginPath(); g.arc(R * 0.45, -R * 0.4, R * 0.16, 0, TAU); g.fill(); g.shadowBlur = 0; });
   } else {                                // generic fallback
     glowOn(); g.fillStyle = body; g.beginPath(); g.arc(0, 0, R, 0, TAU); g.fill(); glowOff();
     face(0, -R * 0.1, R);

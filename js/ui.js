@@ -202,15 +202,49 @@ function renderShop() {
 function pips(n, max) { let s = ''; for (let i = 0; i < max; i++) s += `<i class="${i < n ? 'on' : ''}"></i>`; return s; }
 
 /* ----------------------------- achievements ----------------------------- */
+// current progress toward an achievement -> { cur, target, time? } or null
+function achProgress(id) {
+  const d = Save.data, w = d.wkills || {};
+  switch (id) {
+    case 'firstblood':  return { cur: d.totalKills, target: 10 };
+    case 'slayer1000':  return { cur: d.totalKills, target: 1000 };
+    case 'annihilator': return { cur: d.totalKills, target: 5000 };
+    case 'boss1':       return { cur: d.bossKills, target: 1 };
+    case 'bossbane':    return { cur: d.bossKills, target: 10 };
+    case 'glimmer1500': return { cur: d.totalGlimmer, target: 1500 };
+    case 'glimmerlord': return { cur: d.totalGlimmer, target: 6000 };
+    case 'survive5':    return { cur: d.bestTime, target: 300, time: true };
+    case 'marathon':    return { cur: d.bestTime, target: 600, time: true };
+    case 'untouchable': return { cur: d.bestNoHitTime || 0, target: 180, time: true };
+    case 'flawless':    return { cur: d.bestNoHitTime || 0, target: 300, time: true };
+    case 'lvl12':       return { cur: d.bestLevel, target: 12 };
+    case 'pyromaniac':  return { cur: d.slimeFireKills, target: 100 };
+    case 'thunderlord': return { cur: w.chain || 0, target: 350 };
+    case 'crushblow':   return { cur: w.hammer || 0, target: 350 };
+    case 'volley':      return { cur: w.arrow || 0, target: 500 };
+  }
+  return null;
+}
 function renderAch() {
   const wrap = UI.achGrid;
   wrap.innerHTML = '';
   for (const a of ACHIEVEMENTS) {
     const done = Save.data.achievements[a.id];
+    const pr = achProgress(a.id);
+    let bar = '';
+    if (pr) {
+      const cur = Math.min(pr.cur, pr.target);
+      const pct = done ? 100 : Math.min(100, Math.round(pr.cur / pr.target * 100));
+      const label = done ? 'Complete'
+        : (pr.time ? `${fmtTime(cur)} / ${fmtTime(pr.target)}`
+                   : `${Math.floor(cur).toLocaleString()} / ${pr.target.toLocaleString()}`);
+      bar = `<div class="ach-bar"><div class="ach-bar-fill" style="width:${pct}%"></div></div>
+             <div class="ach-prog">${label}</div>`;
+    }
     wrap.appendChild(elFromHTML(`
       <div class="ach-card ${done ? 'done' : ''}">
         <div class="ach-ic">${done ? '🏆' : '🔒'}</div>
-        <div><div class="ach-name">${a.name}</div><div class="ach-desc">${a.desc}</div></div>
+        <div class="ach-body"><div class="ach-name">${a.name}</div><div class="ach-desc">${a.desc}</div>${bar}</div>
       </div>`));
   }
   showScreen('ach');

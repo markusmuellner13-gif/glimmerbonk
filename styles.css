@@ -149,8 +149,14 @@ body.touch.in-game #dashBtn{display:block;}
 .ach-card{display:flex;align-items:center;gap:14px;background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:12px 14px;opacity:.6;}
 .ach-card.done{opacity:1;border-color:var(--gold);box-shadow:0 0 16px #ffd24a22;}
 .ach-ic{font-size:26px;}
+.ach-body{flex:1;min-width:0;}
 .ach-name{font-weight:900;font-size:15px;}
 .ach-desc{font-size:12.5px;color:var(--muted);}
+.ach-bar{margin-top:7px;height:7px;border-radius:5px;background:#0c0a14;border:1px solid var(--line);overflow:hidden;}
+.ach-bar-fill{height:100%;border-radius:5px;background:linear-gradient(90deg,var(--cyan),var(--gold));transition:width .3s ease;}
+.ach-card.done .ach-bar-fill{background:var(--gold);}
+.ach-prog{margin-top:3px;font-size:11px;font-weight:700;color:var(--muted);text-align:right;}
+.ach-card.done .ach-prog{color:var(--gold);}
 
 /* ---------------- level up ---------------- */
 .lvlup-title{font-size:clamp(28px,8vw,46px);margin:0;color:var(--gold);text-shadow:0 0 24px #ffd24a77;animation:pop .3s ease;}

@@ -90,6 +90,12 @@ const WEAPONS = {
     cooldown: 0, dmg: 13, count: 4, radius: 64, orbitSpeed: 4.4, size: 13,
     desc: "Whirling wind-blades spin in a fast, tight ring.",
   },
+  phantom: {
+    name: "Spirit Volley", behavior: "spread", color: "#cdeaff", proj: "star",
+    cooldown: 0.55, dmg: 12, speed: 600, count: 3, spread: 0.2, pierce: 2, size: 8, range: 600,
+    crit: 0.2,
+    desc: "A fan of ghostly bolts that drift clean through the swarm.",
+  },
 };
 
 /* ---------- CHARACTERS ---------- */
@@ -220,6 +226,15 @@ const CHARACTERS = [
     stats: { damage: 1.0, area: 1.1 },
     unlock: { ach: "glimmerlord", hint: "Bank 6000 Glimmer in total." },
   },
+  {
+    id: "veil", name: "Veil Mistwalker", title: "The Untouched",
+    color: "#cdeaff", accent: "#2a3a4a",
+    desc: "A phantom who drifts untouched through the swarm. Unlocked by reaching 5 minutes without taking a single hit.",
+    maxHp: 80, speed: 1.28, armor: 0,
+    weapon: "phantom",
+    stats: { damage: 1.0, critChance: 0.1, critMult: 0.3 },
+    unlock: { ach: "flawless", hint: "Reach 5 minutes in one run without taking a hit." },
+  },
 ];
 
 /* ---------- ENEMIES ----------
@@ -318,4 +333,5 @@ const ACHIEVEMENTS = [
   { id:"annihilator",name:"Annihilator",     desc:"Slay 5000 enemies total. (Unlocks Silas Longshot)" },
   { id:"bossbane",   name:"Bossbane",        desc:"Defeat 10 bosses total. (Unlocks Cass Boomer)" },
   { id:"glimmerlord",name:"Glimmer Lord",    desc:"Bank 6000 Glimmer total. (Unlocks Zephyr Galewind)" },
+  { id:"flawless",   name:"Flawless",        desc:"Reach 5 minutes without taking a hit. (Unlocks Veil Mistwalker)" },
 ];

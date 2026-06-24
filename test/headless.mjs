@@ -157,7 +157,7 @@ try {
 
   // unlocked-character weapons (force-unlock and play each)
   const save = JSON.parse(sandbox.localStorage.getItem('glimmerbonk_save_v1') || '{}');
-  for (const c of ['ember', 'grimm', 'nyx', 'vesper', 'astra', 'glace', 'sythe', 'thorne', 'silas', 'cass', 'zephyr']) {
+  for (const c of ['ember', 'grimm', 'nyx', 'vesper', 'astra', 'glace', 'sythe', 'thorne', 'silas', 'cass', 'zephyr', 'veil']) {
     T.Game; // ensure
     sandbox.__T.Game;
     // directly start (startRun doesn't gate on unlock)
